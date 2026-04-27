@@ -8,7 +8,14 @@ The application is divided into independent services, each responsible for a spe
 The frontend communicates with the backend through an API Gateway.  
 The API Gateway redirects requests to the appropriate service.
 
-## 2. Global Project Structure
+## 2. Database Workspace
+
+The project uses a centralized `database/` folder for Prisma configuration and migrations.
+
+This choice keeps the first version simpler because all services use one PostgreSQL database.  
+Later, the project can evolve into one database per service if needed.
+
+## 3. Global Project Structure
 
 ```txt
 momento/
@@ -21,5 +28,6 @@ momento/
 │   ├── provider-service/
 │   ├── admin-service/
 │   └── notification-service/
+├── database/
 ├── docs/
 └── README.md
