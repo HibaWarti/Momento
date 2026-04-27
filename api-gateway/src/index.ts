@@ -12,6 +12,7 @@ const app = express()
 const PORT = process.env.PORT || 3000
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001'
+const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3002'
 
 app.use(helmet())
 app.use(
@@ -37,6 +38,17 @@ app.use(
     changeOrigin: true,
     pathRewrite: {
       '^/api/auth': '',
+    },
+  }),
+)
+
+app.use(
+  '/api/users',
+  createProxyMiddleware({
+    target: USER_SERVICE_URL,
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/users': '',
     },
   }),
 )
