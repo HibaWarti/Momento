@@ -50,6 +50,13 @@ The platform allows users to publish posts, interact with content, follow other 
 ```txt
 momento/
 ├── frontend/
-├── backend/
+├── api-gateway/
+├── services/
+│   ├── auth-service/
+│   ├── user-service/
+│   ├── post-service/
+│   ├── provider-service/
+│   ├── admin-service/
+│   └── notification-service/
 ├── docs/
 └── README.md
