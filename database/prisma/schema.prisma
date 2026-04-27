@@ -94,3 +94,85 @@ enum LogAction {
   SERVICE_CREATED
   SERVICE_DELETED
 }
+
+model User {
+  id                 String        @id @default(uuid())
+  firstName          String
+  lastName           String
+  username           String        @unique
+  email              String        @unique
+  password           String
+  profilePicturePath String?
+  bio                String?
+  role               UserRole      @default(USER)
+  accountStatus      AccountStatus @default(ACTIVE)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  posts     Post[]
+  comments  Comment[]
+  reactions Reaction[]
+
+  following Follow[] @relation("UserFollowing")
+  followers Follow[] @relation("UserFollowers")
+}
+
+model Post {
+  id        String     @id @default(uuid())
+  content   String
+  status    PostStatus @default(ACTIVE)
+  authorId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  images    PostImage[]
+  comments  Comment[]
+  reactions Reaction[]
+}
+
+model PostImage {
+  id        String   @id @default(uuid())
+  imagePath String
+  postId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reaction {
+  id        String       @id @default(uuid())
+  type      ReactionType @default(LIKE)
+  postId    String
+  userId    String
+  createdAt DateTime     @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}
