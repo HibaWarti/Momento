@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import { createProxyMiddleware } from 'http-proxy-middleware'
 
 dotenv.config()
 
@@ -10,6 +11,7 @@ const app = express()
 
 const PORT = process.env.PORT || 3000
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001'
 
 app.use(helmet())
 app.use(
@@ -18,7 +20,6 @@ app.use(
     credentials: true,
   }),
 )
-app.use(express.json())
 app.use(morgan('dev'))
 
 app.get('/api/health', (_req: Request, res: Response) => {
@@ -28,6 +29,17 @@ app.get('/api/health', (_req: Request, res: Response) => {
     service: 'api-gateway',
   })
 })
+
+app.use(
+  '/api/auth',
+  createProxyMiddleware({
+    target: AUTH_SERVICE_URL,
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/auth': '',
+    },
+  }),
+)
 
 app.listen(PORT, () => {
   console.log(`API Gateway running on http://localhost:${PORT}`)
