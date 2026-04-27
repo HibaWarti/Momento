@@ -100,3 +100,7 @@ app.use(
     },
   }),
 )
+
+app.listen(PORT, () => {
+  console.log(`API Gateway running on http://localhost:${PORT}`)
+})
