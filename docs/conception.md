@@ -586,6 +586,16 @@ Possible values:
 
 ---
 
+### PostStatus
+
+Possible values:
+
+- ACTIVE
+- HIDDEN
+- DELETED
+
+---
+
 ### ServiceStatus
 
 Possible values:
@@ -603,8 +613,9 @@ Possible values:
 - LIKE
 - LOVE
 - WOW
-
-For the first version, it is possible to keep only LIKE.
+- HAHA
+- SAD
+- ANGRY
 
 ---
 
@@ -616,6 +627,15 @@ Possible values:
 - REVIEWING
 - RESOLVED
 - REJECTED
+
+---
+
+### ReviewStatus
+
+Possible values:
+
+- VISIBLE
+- HIDDEN
 
 ---
 
