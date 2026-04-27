@@ -1,0 +1,36 @@
+{
+  "name": "momento",
+  "version": "1.0.0",
+  "description": "Momento is a social platform focused on sharing memories and inspiration from past events.  \r The platform allows users to publish posts, interact with content, follow other users, and discover service providers.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:gateway": "npm run dev --prefix api-gateway",
+    "dev:auth": "npm run dev --prefix services/auth-service",
+    "dev:user": "npm run dev --prefix services/user-service",
+    "dev:post": "npm run dev --prefix services/post-service",
+    "dev:provider": "npm run dev --prefix services/provider-service",
+    "dev:admin": "npm run dev --prefix services/admin-service",
+    "dev:notification": "npm run dev --prefix services/notification-service",
+    "dev:backend": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:post\" \"npm run dev:provider\" \"npm run dev:admin\" \"npm run dev:notification\"",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HibaWarti/Momento.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/HibaWarti/Momento/issues"
+  },
+  "homepage": "https://github.com/HibaWarti/Momento#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
