@@ -117,6 +117,13 @@ model User {
   reviewedRequests ProviderRequest[] @relation("ProviderRequestReviewer")
   providerProfile  ProviderProfile?
 
+  reportsCreated     Report[]       @relation("ReportCreator")
+  reportsAgainstUser Report[]       @relation("ReportedUser")
+  reportsReviewed    Report[]       @relation("ReportReviewer")
+  notifications      Notification[]
+  logs               Log[]
+  reviews            Review[]
+
   following Follow[] @relation("UserFollowing")
   followers Follow[] @relation("UserFollowers")
 }
@@ -133,6 +140,8 @@ model Post {
   images    PostImage[]
   comments  Comment[]
   reactions Reaction[]
+
+  reports Report[]
 }
 
 model PostImage {
@@ -231,6 +240,7 @@ model Service {
 
   providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
   images          ServiceImage[]
+  reviews Review[]
 }
 
 model ServiceImage {
@@ -240,4 +250,62 @@ model ServiceImage {
   createdAt DateTime @default(now())
 
   service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id             String       @id @default(uuid())
+  reporterId     String
+  reportedUserId String?
+  postId         String?
+  reason         String
+  description    String?
+  status         ReportStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+  reviewedAt     DateTime?
+  reviewedById   String?
+
+  reporter     User  @relation("ReportCreator", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User? @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  post         Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reviewedBy   User? @relation("ReportReviewer", fields: [reviewedById], references: [id])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Log {
+  id          String    @id @default(uuid())
+  actorId     String?
+  action      LogAction
+  entityType  String
+  entityId    String?
+  description String?
+  createdAt   DateTime  @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+}
+
+model Review {
+  id        String       @id @default(uuid())
+  userId    String
+  serviceId String
+  rating    Int
+  comment   String?
+  status    ReviewStatus @default(VISIBLE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serviceId])
 }
