@@ -61,6 +61,8 @@ momento/
 ├── docs/
 └── README.md
 
+```
+
 ## Local Development
 
 For local setup instructions, see: docs/local-development.md
@@ -70,4 +72,3 @@ Main development commands:
 - npm run dev:backend
 - npm run dev:frontend
 - npm run dev
-```
