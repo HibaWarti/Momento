@@ -137,7 +137,7 @@ A user can:
 A user cannot:
 
 - Edit another user's post
-- Delete another user's post, unless they are an admin/moderator
+- Delete another user's post, unless they are an admin
 
 ---
 
@@ -221,7 +221,6 @@ An admin can:
 - Reject provider requests
 - Review reports
 - Moderate posts and comments
-- Manage public inspiration content if needed
 
 An admin cannot:
 
@@ -274,6 +273,7 @@ Relations:
 - A user can have one provider profile
 - A user can create reports
 - A user can receive notifications
+- A user can create reviews for services
 
 ---
 
@@ -285,6 +285,7 @@ Fields:
 
 - id
 - content
+- status
 - authorId
 - createdAt
 - updatedAt
@@ -453,6 +454,7 @@ Relations:
 
 - A service belongs to one provider profile
 - A service can have many images
+- A service can have many reviews
 
 ---
 
@@ -542,6 +544,30 @@ Relations:
 - A log may belong to one actor/user
 
 ---
+
+### 3.14 Review
+
+Represents a user review for a service offered by a provider.
+
+Fields:
+
+- id
+- userId
+- serviceId
+- rating
+- comment
+- status
+- createdAt
+- updatedAt
+
+Relations:
+
+- A review belongs to one user
+- A review belongs to one service
+
+Constraint:
+
+- One user can review the same service only once
 
 ## 4. Enums
 
@@ -686,6 +712,7 @@ User
 ├── ProviderProfile
 │   └── Service
 │       └── ServiceImage
+│       └── Review
 │
 ├── Follow
 ├── Notification
