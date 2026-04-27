@@ -11,3 +11,86 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum UserRole {
+  USER
+  PROVIDER
+  ADMIN
+  SUPERADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+}
+
+enum ProviderRequestStatus {
+  PENDING
+  REVIEWING
+  APPROVED
+  REJECTED
+}
+
+enum ProviderStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum PostStatus {
+  ACTIVE
+  HIDDEN
+  DELETED
+}
+
+enum ServiceStatus {
+  ACTIVE
+  HIDDEN
+  DELETED
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  WOW
+  HAHA
+  SAD
+  ANGRY
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  REJECTED
+}
+
+enum ReviewStatus {
+  VISIBLE
+  HIDDEN
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  FOLLOW
+  PROVIDER_REQUEST_APPROVED
+  PROVIDER_REQUEST_REJECTED
+  REPORT_STATUS
+  SYSTEM
+}
+
+enum LogAction {
+  USER_LOGIN
+  USER_REGISTER
+  POST_CREATED
+  POST_DELETED
+  PROVIDER_REQUEST_SUBMITTED
+  PROVIDER_REQUEST_APPROVED
+  PROVIDER_REQUEST_REJECTED
+  USER_BLOCKED
+  USER_UNBLOCKED
+  REPORT_REVIEWED
+  SERVICE_CREATED
+  SERVICE_DELETED
+}
