@@ -621,6 +621,77 @@ app.delete('/:id/reactions', authenticate, async (req: Request, res: Response) =
   }
 })
 
+app.post('/:id/reports', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+    const { reason, description } = req.body
+
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Report reason is required',
+      })
+    }
+
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        id: true,
+        authorId: true,
+        status: true,
+      },
+    })
+
+    if (!post || post.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    if (post.status === 'HIDDEN') {
+      return res.status(403).json({
+        success: false,
+        message: 'This post cannot be reported',
+      })
+    }
+
+    if (post.authorId === currentUser.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot report your own post',
+      })
+    }
+
+    const report = await prisma.report.create({
+      data: {
+        reporterId: currentUser.id,
+        postId,
+        reason: String(reason).trim(),
+        description:
+          description !== undefined && description !== null
+            ? String(description).trim()
+            : null,
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Post reported successfully',
+      report,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to report post',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const postId = String(req.params.id)
