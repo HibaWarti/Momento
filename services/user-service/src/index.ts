@@ -260,6 +260,63 @@ app.post('/:id/follow', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.delete('/:id/follow', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const userToUnfollowId = String(req.params.id)
+
+    if (!userToUnfollowId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required',
+      })
+    }
+
+    if (currentUser.id === userToUnfollowId) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot unfollow yourself',
+      })
+    }
+
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: currentUser.id,
+          followingId: userToUnfollowId,
+        },
+      },
+    })
+
+    if (!existingFollow) {
+      return res.status(404).json({
+        success: false,
+        message: 'Follow relation not found',
+      })
+    }
+
+    await prisma.follow.delete({
+      where: {
+        followerId_followingId: {
+          followerId: currentUser.id,
+          followingId: userToUnfollowId,
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'User unfollowed successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to unfollow user',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`User Service running on http://localhost:${PORT}`)
 })

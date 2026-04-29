@@ -292,6 +292,7 @@ Base path:
 | PATCH | /profile/me |
 | GET | /:id |
 | POST | /:id/follow |
+| DELETE | /:id/follow/ |
 
 
 ---
