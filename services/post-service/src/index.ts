@@ -155,6 +155,99 @@ app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
   })
 })
 
+app.patch('/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+    const { content } = req.body
+
+    if (content === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one field is required',
+      })
+    }
+
+    const trimmedContent = String(content).trim()
+
+    if (!trimmedContent) {
+      return res.status(400).json({
+        success: false,
+        message: 'Post content is required',
+      })
+    }
+
+    const existingPost = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        id: true,
+        authorId: true,
+        status: true,
+      },
+    })
+
+    if (
+      !existingPost ||
+      existingPost.status === 'DELETED' ||
+      existingPost.status === 'HIDDEN'
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    if (existingPost.authorId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only update your own posts',
+      })
+    }
+
+    const post = await prisma.post.update({
+      where: {
+        id: postId,
+      },
+      data: {
+        content: trimmedContent,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+        images: true,
+        _count: {
+          select: {
+            comments: true,
+            reactions: true,
+            reports: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Post updated successfully',
+      post,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update post',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const postId = String(req.params.id)
