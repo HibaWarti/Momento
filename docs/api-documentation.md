@@ -100,13 +100,42 @@ Base path:
 
 ---
 
-## Admin and Moderation APIs
+## Phase 7 — Admin and Moderation APIs
 
 Base path:
 
 /api/admin
 
-To be added after Phase 8.
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| GET | /health | Check Admin Service status | No |
+| GET | /db-health | Check Admin Service database connection | No |
+| GET | /auth-check | Check Admin Service authentication | Yes (Admin/SuperAdmin) |
+| GET | /superadmin/auth-check | Check Super Admin authentication | Yes (SuperAdmin only) |
+| GET | /users | Get all users | Yes (Admin/SuperAdmin) |
+| GET | /users/:id | Get user details by ID | Yes (Admin/SuperAdmin) |
+| PATCH | /users/:id/block | Block a user | Yes (Admin/SuperAdmin) |
+| PATCH | /users/:id/unblock | Unblock a user | Yes (Admin/SuperAdmin) |
+| GET | /provider-requests | Get all provider requests | Yes (Admin/SuperAdmin) |
+| GET | /provider-requests/:id | Get provider request details | Yes (Admin/SuperAdmin) |
+| PATCH | /provider-requests/:id/reviewing | Mark provider request as reviewing | Yes (Admin/SuperAdmin) |
+| PATCH | /provider-requests/:id/approve | Approve provider request | Yes (Admin/SuperAdmin) |
+| PATCH | /provider-requests/:id/reject | Reject provider request | Yes (Admin/SuperAdmin) |
+| GET | /reports | Get all reports | Yes (Admin/SuperAdmin) |
+| GET | /reports/:id | Get report details | Yes (Admin/SuperAdmin) |
+| PATCH | /reports/:id/reviewing | Mark report as reviewing | Yes (Admin/SuperAdmin) |
+| PATCH | /reports/:id/resolve | Resolve report | Yes (Admin/SuperAdmin) |
+| PATCH | /reports/:id/reject | Reject report | Yes (Admin/SuperAdmin) |
+| PATCH | /posts/:id/hide | Hide a post | Yes (Admin/SuperAdmin) |
+| PATCH | /posts/:id/restore | Restore a post | Yes (Admin/SuperAdmin) |
+| PATCH | /services/:id/hide | Hide a service | Yes (Admin/SuperAdmin) |
+| PATCH | /services/:id/restore | Restore a service | Yes (Admin/SuperAdmin) |
+| PATCH | /reviews/:id/hide | Hide a review | Yes (Admin/SuperAdmin) |
+| PATCH | /reviews/:id/restore | Restore a review | Yes (Admin/SuperAdmin) |
+| GET | /stats | Get admin dashboard stats | Yes (Admin/SuperAdmin) |
+| GET | /logs | Get admin logs | Yes (Admin/SuperAdmin) |
+| GET | /superadmin/logs | Get super admin logs | Yes (SuperAdmin only) |
+| GET | /superadmin/stats | Get super admin stats | Yes (SuperAdmin only) |
 
 ---
 
