@@ -15,28 +15,30 @@ import { NotificationsPage } from './pages/notifications/NotificationsPage'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminProviderRequestsPage } from './pages/admin/AdminProviderRequestsPage'
 import { AdminReportsPage } from './pages/admin/AdminReportsPage'
+import { NotFoundPage } from './pages/public/NotFoundPage'
+import { paths } from './routes/paths'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/explore" element={<ExplorePage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/providers" element={<ProvidersPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/feed" element={<FeedPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/services/:serviceId" element={<ServiceDetailsPage />} />
-          <Route path="/providers/:providerId" element={<ProviderProfilePage />} /> 
-          <Route path="/provider-request" element={<ProviderRequestPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route path="/admin/provider-requests" element={<AdminProviderRequestsPage />} />
-          <Route path="/admin/reports" element={<AdminReportsPage />} />
-          <Route path="*" element={<HomePage />} />
+          <Route path={paths.home} element={<HomePage />} />
+          <Route path={paths.explore} element={<ExplorePage />} />
+          <Route path={paths.services} element={<ServicesPage />} />
+          <Route path={paths.serviceDetails} element={<ServiceDetailsPage />} />
+          <Route path={paths.providers} element={<ProvidersPage />} />
+          <Route path={paths.providerProfile} element={<ProviderProfilePage />} /> 
+          <Route path={paths.providerRequest} element={<ProviderRequestPage />} />
+          <Route path={paths.login} element={<LoginPage />} />
+          <Route path={paths.register} element={<RegisterPage />} />
+          <Route path={paths.feed} element={<FeedPage />} />
+          <Route path={paths.profile} element={<ProfilePage />} />
+          <Route path={paths.notifications} element={<NotificationsPage />} />
+          <Route path={paths.adminDashboard} element={<AdminDashboardPage />} />
+          <Route path={paths.adminProviderRequests} element={<AdminProviderRequestsPage />} />
+          <Route path={paths.adminReports} element={<AdminReportsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
