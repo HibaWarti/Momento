@@ -155,6 +155,87 @@ app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
   })
 })
 
+app.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const postId = String(req.params.id)
+
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+        images: true,
+        comments: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+              },
+            },
+          },
+        },
+        reactions: {
+          select: {
+            id: true,
+            type: true,
+            userId: true,
+            createdAt: true,
+          },
+        },
+        _count: {
+          select: {
+            comments: true,
+            reactions: true,
+            reports: true,
+          },
+        },
+      },
+    })
+
+    if (!post || post.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    if (post.status === 'HIDDEN') {
+      return res.status(403).json({
+        success: false,
+        message: 'This post is hidden',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Post details retrieved successfully',
+      post,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve post details',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 
 app.listen(PORT, () => {
   console.log(`Post Service running on http://localhost:${PORT}`)
