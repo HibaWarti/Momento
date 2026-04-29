@@ -248,6 +248,58 @@ app.patch('/:id', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.delete('/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+
+    const existingPost = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        id: true,
+        authorId: true,
+        status: true,
+      },
+    })
+
+    if (!existingPost || existingPost.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    if (existingPost.authorId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own posts',
+      })
+    }
+
+    await prisma.post.update({
+      where: {
+        id: postId,
+      },
+      data: {
+        status: 'DELETED',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Post deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete post',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const postId = String(req.params.id)
