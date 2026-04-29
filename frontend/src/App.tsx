@@ -11,6 +11,7 @@ import { ProfilePage } from './pages/profile/ProfilePage'
 import { ServiceDetailsPage } from './pages/services/ServiceDetailsPage'
 import { ProviderProfilePage } from './pages/providers/ProviderProfilePage'
 import { ProviderRequestPage } from './pages/providers/ProviderRequestPage'
+import { NotificationsPage } from './pages/notifications/NotificationsPage'
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
           <Route path="/services/:serviceId" element={<ServiceDetailsPage />} />
           <Route path="/providers/:providerId" element={<ProviderProfilePage />} /> 
           <Route path="/provider-request" element={<ProviderRequestPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="*" element={<HomePage />} />
         </Route>
       </Routes>
