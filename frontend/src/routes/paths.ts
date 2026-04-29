@@ -1,0 +1,17 @@
+export const paths = {
+  home: '/',
+  explore: '/explore',
+  services: '/services',
+  serviceDetails: '/services/:serviceId',
+  providers: '/providers',
+  providerProfile: '/providers/:providerId',
+  providerRequest: '/provider-request',
+  login: '/login',
+  register: '/register',
+  feed: '/feed',
+  profile: '/profile',
+  notifications: '/notifications',
+  admin: '/admin',
+  adminProviderRequests: '/admin/provider-requests',
+  adminReports: '/admin/reports',
+}

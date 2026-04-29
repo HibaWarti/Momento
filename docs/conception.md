@@ -241,6 +241,22 @@ A SuperAdmin can:
 
 ---
 
+### 2.12 Chat Rules
+
+A user can start a conversation with another user or with a provider.
+
+A conversation can contain multiple messages.
+
+A message belongs to:
+- one conversation
+- one sender
+
+A user can only view conversations where they are a participant.
+
+A provider can receive messages from users interested in their services.
+
+In the first version, chat does not need to be real-time. Messages can be loaded and sent using normal API requests.
+
 ## 3. Main Entities
 
 ### 3.1 User
@@ -261,6 +277,8 @@ Fields:
 - accountStatus
 - createdAt
 - updatedAt
+- ConversationParticipant
+- Message
 
 Relations:
 
@@ -568,6 +586,65 @@ Relations:
 Constraint:
 
 - One user can review the same service only once
+
+### 3.15 Conversation
+
+Represents a private discussion between users.
+
+Fields:
+
+- id
+- createdAt
+- updatedAt
+- ConversationParticipant
+- Message
+
+Relations:
+
+- A conversation can have many participants
+- A conversation can have many messages
+
+---
+
+### 3.16 ConversationParticipant
+
+Represents a user participating in a conversation.
+
+Fields:
+
+- id
+- conversationId
+- userId
+- createdAt
+
+Relations:
+
+- A conversation participant belongs to one conversation
+- A conversation participant belongs to one user
+
+Constraint:
+
+- A user can only appear once in the same conversation
+
+---
+
+### 3.17 Message
+
+Represents a message sent inside a conversation.
+
+Fields:
+
+- id
+- conversationId
+- senderId
+- content
+- isRead
+- createdAt
+
+Relations:
+
+- A message belongs to one conversation
+- A message belongs to one sender
 
 ## 4. Enums
 

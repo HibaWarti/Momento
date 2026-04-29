@@ -27,7 +27,8 @@ momento/
 │   ├── post-service/
 │   ├── provider-service/
 │   ├── admin-service/
-│   └── notification-service/
+│   ├── notification-service/
+│   └── chat-service/
 ├── database/
 ├── docs/
 └── README.md

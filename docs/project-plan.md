@@ -70,14 +70,25 @@
 - Notification for provider request status
 - Admin notifications
 
-## Phase 10: Testing
+## Phase 10: Chat and Messaging
+
+- Create chat-service
+- Add conversation and message models
+- Create conversation endpoints
+- Create send message endpoint
+- Create messages list endpoint
+- Create chat frontend page
+- Connect Contact Provider button to chat
+- Add real-time chat later as a future improvement
+
+## Phase 11: Testing
 
 - Manual testing
 - Backend route testing
 - Frontend component testing
 - Optional end-to-end testing
 
-## Phase 11: Deployment
+## Phase 12: Deployment
 
 - Prepare environment variables
 - Create production PostgreSQL database
@@ -86,7 +97,7 @@
 - Configure image hosting
 - Test the online version
 
-## Phase 12: Documentation
+## Phase 13: Documentation
 
 - Final README
 - Screenshots
