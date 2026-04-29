@@ -300,6 +300,76 @@ app.delete('/:id', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.post('/:id/comments', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+    const { content } = req.body
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Comment content is required',
+      })
+    }
+
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    })
+
+    if (!post || post.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    if (post.status === 'HIDDEN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot comment on this post',
+      })
+    }
+
+    const comment = await prisma.comment.create({
+      data: {
+        content: String(content).trim(),
+        postId,
+        userId: currentUser.id,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Comment created successfully',
+      comment,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create comment',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const postId = String(req.params.id)
