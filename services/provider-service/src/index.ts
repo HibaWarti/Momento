@@ -168,6 +168,48 @@ app.get('/requests/me', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.get('/', async (_req: Request, res: Response) => {
+  try {
+    const providers = await prisma.providerProfile.findMany({
+      where: {
+        providerStatus: 'ACTIVE',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+            bio: true,
+          },
+        },
+        _count: {
+          select: {
+            services: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Providers retrieved successfully',
+      providers,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve providers',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Provider Service running on http://localhost:${PORT}`)
 })
