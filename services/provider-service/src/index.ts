@@ -363,6 +363,93 @@ app.patch('/me/profile', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.post('/services', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const { title, description, price, city, category } = req.body
+
+    if (!title || !description || !city || !category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, description, city, and category are required',
+      })
+    }
+
+    const providerProfile = await prisma.providerProfile.findUnique({
+      where: {
+        userId: currentUser.id,
+      },
+      select: {
+        id: true,
+        providerStatus: true,
+      },
+    })
+
+    if (!providerProfile || providerProfile.providerStatus !== 'ACTIVE') {
+      return res.status(403).json({
+        success: false,
+        message: 'Active provider profile is required',
+      })
+    }
+
+    const parsedPrice =
+      price !== undefined && price !== null && String(price).trim() !== ''
+        ? Number(price)
+        : null
+
+    if (parsedPrice !== null && Number.isNaN(parsedPrice)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Price must be a valid number',
+      })
+    }
+
+    const service = await prisma.service.create({
+      data: {
+        providerProfileId: providerProfile.id,
+        title: String(title).trim(),
+        description: String(description).trim(),
+        price: parsedPrice,
+        city: String(city).trim(),
+        category: String(category).trim(),
+      },
+      include: {
+        providerProfile: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+              },
+            },
+          },
+        },
+        images: true,
+        _count: {
+          select: {
+            reviews: true,
+          },
+        },
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Service created successfully',
+      service,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create service',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const providerId = String(req.params.id)
