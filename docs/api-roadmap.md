@@ -287,6 +287,10 @@ Base path:
 | Method | Route |
 |---|---|
 | GET | /health |
+| GET | /db-health |
+| GET | /profile/me |
+
+
 
 ---
 
