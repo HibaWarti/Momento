@@ -68,13 +68,33 @@ Base path:
 
 ---
 
-## Provider and Services APIs
+## Phase 6 — Provider and Services APIs
 
 Base path:
 
 /api/providers
 
-To be added after Phase 7.
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| GET | /health | Check Provider Service status | No |
+| GET | /db-health | Check Provider Service database connection | No |
+| GET | /auth-check | Check Provider Service authentication middleware | Yes |
+| POST | /requests | Submit provider request | Yes |
+| GET | /requests/me | Get current user's provider requests | Yes |
+| GET | / | Get providers list | No |
+| GET | /:id | Get provider profile by ID | No |
+| GET | /me/profile | Get current provider profile | Yes |
+| PATCH | /me/profile | Update current provider profile | Yes |
+| GET | /me/services | Get current provider services | Yes |
+| POST | /services | Create service | Yes |
+| GET | /services | Get services list | No |
+| GET | /services/:id | Get service details | No |
+| PATCH | /services/:id | Update own service | Yes |
+| DELETE | /services/:id | Delete own service | Yes |
+| GET | /services/:id/reviews | Get service reviews | No |
+| POST | /services/:id/reviews | Add review to service | Yes |
+| PATCH | /reviews/:reviewId | Update own review | Yes |
+| DELETE | /reviews/:reviewId | Delete own review | Yes |
 
 ---
 

@@ -168,48 +168,6 @@ app.get('/requests/me', authenticate, async (req: Request, res: Response) => {
   }
 })
 
-app.get('/', async (_req: Request, res: Response) => {
-  try {
-    const providers = await prisma.providerProfile.findMany({
-      where: {
-        providerStatus: 'ACTIVE',
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            username: true,
-            profilePicturePath: true,
-            bio: true,
-          },
-        },
-        _count: {
-          select: {
-            services: true,
-          },
-        },
-      },
-    })
-
-    return res.status(200).json({
-      success: true,
-      message: 'Providers retrieved successfully',
-      providers,
-    })
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve providers',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-  }
-})
-
 app.get('/me/profile', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string; role?: string }
@@ -363,6 +321,64 @@ app.patch('/me/profile', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.get('/me/services', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string; role?: string }
+
+    if (currentUser.role !== 'PROVIDER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Provider access required',
+      })
+    }
+
+    const providerProfile = await prisma.providerProfile.findUnique({
+      where: {
+        userId: currentUser.id,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!providerProfile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Provider profile not found',
+      })
+    }
+
+    const services = await prisma.service.findMany({
+      where: {
+        providerProfileId: providerProfile.id,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        images: true,
+        _count: {
+          select: {
+            reviews: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Current provider services retrieved successfully',
+      services,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve current provider services',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.post('/services', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
@@ -497,6 +513,146 @@ app.get('/services', async (_req: Request, res: Response) => {
   }
 })
 
+app.get('/services/:id/reviews', async (req: Request, res: Response) => {
+  try {
+    const serviceId = String(req.params.id)
+
+    const reviews = await prisma.review.findMany({
+      where: {
+        serviceId: serviceId,
+        status: 'VISIBLE',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Reviews retrieved successfully',
+      reviews,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve reviews',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.post('/services/:id/reviews', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const serviceId = String(req.params.id)
+    const { rating, comment } = req.body
+
+    if (!rating) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating is required',
+      })
+    }
+
+    const parsedRating = Number(rating)
+    if (Number.isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be between 1 and 5',
+      })
+    }
+
+    const service = await prisma.service.findUnique({
+      where: {
+        id: serviceId,
+      },
+      include: {
+        providerProfile: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    })
+
+    if (!service || service.status !== 'ACTIVE') {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found',
+      })
+    }
+
+    if (service.providerProfile.userId === currentUser.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot review your own service',
+      })
+    }
+
+    const existingReview = await prisma.review.findUnique({
+      where: {
+        userId_serviceId: {
+          userId: currentUser.id,
+          serviceId: serviceId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (existingReview) {
+      return res.status(409).json({
+        success: false,
+        message: 'You have already reviewed this service',
+      })
+    }
+
+    const review = await prisma.review.create({
+      data: {
+        userId: currentUser.id,
+        serviceId: serviceId,
+        rating: parsedRating,
+        comment: comment !== undefined && comment !== null ? String(comment).trim() : null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Review created successfully',
+      review,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create review',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/services/:id', async (req: Request, res: Response) => {
   try {
     const serviceId = String(req.params.id)
@@ -569,9 +725,11 @@ app.get('/services/:id', async (req: Request, res: Response) => {
   }
 })
 
-app.get('/me/services', authenticate, async (req: Request, res: Response) => {
+app.patch('/services/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string; role?: string }
+    const serviceId = String(req.params.id)
+    const { title, description, price, city, category } = req.body
 
     if (currentUser.role !== 'PROVIDER') {
       return res.status(403).json({
@@ -580,30 +738,102 @@ app.get('/me/services', authenticate, async (req: Request, res: Response) => {
       })
     }
 
-    const providerProfile = await prisma.providerProfile.findUnique({
-      where: {
-        userId: currentUser.id,
-      },
-      select: {
-        id: true,
-      },
-    })
-
-    if (!providerProfile) {
-      return res.status(404).json({
+    if (
+      title === undefined &&
+      description === undefined &&
+      price === undefined &&
+      city === undefined &&
+      category === undefined
+    ) {
+      return res.status(400).json({
         success: false,
-        message: 'Provider profile not found',
+        message: 'At least one field is required',
       })
     }
 
-    const services = await prisma.service.findMany({
+    const service = await prisma.service.findUnique({
       where: {
-        providerProfileId: providerProfile.id,
+        id: serviceId,
       },
-      orderBy: {
-        createdAt: 'desc',
+      select: {
+        id: true,
+        status: true,
+        providerProfile: {
+          select: {
+            userId: true,
+          },
+        },
       },
+    })
+
+    if (!service || service.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found',
+      })
+    }
+
+    if (service.providerProfile.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only update your own services',
+      })
+    }
+
+    const updateData: {
+      title?: string
+      description?: string
+      price?: number | null
+      city?: string
+      category?: string
+    } = {}
+
+    if (title !== undefined) {
+      updateData.title = String(title).trim()
+    }
+    if (description !== undefined) {
+      updateData.description = String(description).trim()
+    }
+    if (city !== undefined) {
+      updateData.city = String(city).trim()
+    }
+    if (category !== undefined) {
+      updateData.category = String(category).trim()
+    }
+    if (price !== undefined) {
+      if (price === null || String(price).trim() === '') {
+        updateData.price = null
+      } else {
+        const parsedPrice = Number(price)
+        if (Number.isNaN(parsedPrice)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Price must be a valid number',
+          })
+        }
+        updateData.price = parsedPrice
+      }
+    }
+
+    const updatedService = await prisma.service.update({
+      where: {
+        id: serviceId,
+      },
+      data: updateData,
       include: {
+        providerProfile: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+              },
+            },
+          },
+        },
         images: true,
         _count: {
           select: {
@@ -615,13 +845,255 @@ app.get('/me/services', authenticate, async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Current provider services retrieved successfully',
-      services,
+      message: 'Service updated successfully',
+      service: updatedService,
     })
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve current provider services',
+      message: 'Failed to update service',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.delete('/services/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string; role?: string }
+    const serviceId = String(req.params.id)
+
+    if (currentUser.role !== 'PROVIDER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Provider access required',
+      })
+    }
+
+    const service = await prisma.service.findUnique({
+      where: {
+        id: serviceId,
+      },
+      select: {
+        id: true,
+        status: true,
+        providerProfile: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    })
+
+    if (!service || service.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found',
+      })
+    }
+
+    if (service.providerProfile.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own services',
+      })
+    }
+
+    await prisma.service.update({
+      where: {
+        id: serviceId,
+      },
+      data: {
+        status: 'DELETED',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Service deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete service',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/reviews/:reviewId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const reviewId = String(req.params.reviewId)
+    const { rating, comment } = req.body
+
+    if (rating === undefined && comment === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one field is required',
+      })
+    }
+
+    const review = await prisma.review.findUnique({
+      where: {
+        id: reviewId,
+      },
+      select: {
+        id: true,
+        userId: true,
+      },
+    })
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found',
+      })
+    }
+
+    if (review.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only update your own reviews',
+      })
+    }
+
+    const updateData: {
+      rating?: number
+      comment?: string | null
+    } = {}
+
+    if (rating !== undefined) {
+      const parsedRating = Number(rating)
+      if (Number.isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+        return res.status(400).json({
+          success: false,
+          message: 'Rating must be between 1 and 5',
+        })
+      }
+      updateData.rating = parsedRating
+    }
+
+    if (comment !== undefined) {
+      updateData.comment = comment !== null ? String(comment).trim() : null
+    }
+
+    const updatedReview = await prisma.review.update({
+      where: {
+        id: reviewId,
+      },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Review updated successfully',
+      review: updatedReview,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update review',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.delete('/reviews/:reviewId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const reviewId = String(req.params.reviewId)
+
+    const review = await prisma.review.findUnique({
+      where: {
+        id: reviewId,
+      },
+      select: {
+        id: true,
+        userId: true,
+      },
+    })
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found',
+      })
+    }
+
+    if (review.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own reviews',
+      })
+    }
+
+    await prisma.review.delete({
+      where: {
+        id: reviewId,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Review deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete review',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/', async (_req: Request, res: Response) => {
+  try {
+    const providers = await prisma.providerProfile.findMany({
+      where: {
+        providerStatus: 'ACTIVE',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+            bio: true,
+          },
+        },
+        _count: {
+          select: {
+            services: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Providers retrieved successfully',
+      providers,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve providers',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
