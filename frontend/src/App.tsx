@@ -13,6 +13,8 @@ import { ProviderProfilePage } from './pages/providers/ProviderProfilePage'
 import { ProviderRequestPage } from './pages/providers/ProviderRequestPage'
 import { NotificationsPage } from './pages/notifications/NotificationsPage'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
+import { AdminProviderRequestsPage } from './pages/admin/AdminProviderRequestsPage'
+import { AdminReportsPage } from './pages/admin/AdminReportsPage'
 
 function App() {
   return (
@@ -32,6 +34,8 @@ function App() {
           <Route path="/provider-request" element={<ProviderRequestPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/provider-requests" element={<AdminProviderRequestsPage />} />
+          <Route path="/admin/reports" element={<AdminReportsPage />} />
           <Route path="*" element={<HomePage />} />
         </Route>
       </Routes>
