@@ -289,6 +289,7 @@ Base path:
 | GET | /health |
 | GET | /db-health |
 | GET | /profile/me |
+| PATCH | /profile/me | Edit user profile |
 
 
 
