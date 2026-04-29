@@ -569,6 +569,64 @@ app.get('/services/:id', async (req: Request, res: Response) => {
   }
 })
 
+app.get('/me/services', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string; role?: string }
+
+    if (currentUser.role !== 'PROVIDER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Provider access required',
+      })
+    }
+
+    const providerProfile = await prisma.providerProfile.findUnique({
+      where: {
+        userId: currentUser.id,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!providerProfile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Provider profile not found',
+      })
+    }
+
+    const services = await prisma.service.findMany({
+      where: {
+        providerProfileId: providerProfile.id,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        images: true,
+        _count: {
+          select: {
+            reviews: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Current provider services retrieved successfully',
+      services,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve current provider services',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const providerId = String(req.params.id)
