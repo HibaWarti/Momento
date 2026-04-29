@@ -383,6 +383,69 @@ app.get('/:id/following', async (req: Request, res: Response) => {
   }
 })
 
+app.post('/:id/reports', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const reportedUserId = String(req.params.id)
+    const { reason, description } = req.body
+
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Report reason is required',
+      })
+    }
+
+    if (currentUser.id === reportedUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot report yourself',
+      })
+    }
+
+    const reportedUser = await prisma.user.findUnique({
+      where: {
+        id: reportedUserId,
+      },
+      select: {
+        id: true,
+        accountStatus: true,
+      },
+    })
+
+    if (!reportedUser || reportedUser.accountStatus === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'User to report not found',
+      })
+    }
+
+    const report = await prisma.report.create({
+      data: {
+        reporterId: currentUser.id,
+        reportedUserId,
+        reason: String(reason).trim(),
+        description:
+          description !== undefined && description !== null
+            ? String(description).trim()
+            : null,
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'User reported successfully',
+      report,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to report user',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
