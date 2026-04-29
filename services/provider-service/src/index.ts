@@ -450,6 +450,53 @@ app.post('/services', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.get('/services', async (_req: Request, res: Response) => {
+  try {
+    const services = await prisma.service.findMany({
+      where: {
+        status: 'ACTIVE',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        providerProfile: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+                bio: true,
+              },
+            },
+          },
+        },
+        images: true,
+        _count: {
+          select: {
+            reviews: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Services retrieved successfully',
+      services,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve services',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const providerId = String(req.params.id)
