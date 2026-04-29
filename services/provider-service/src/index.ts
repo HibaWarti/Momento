@@ -497,6 +497,78 @@ app.get('/services', async (_req: Request, res: Response) => {
   }
 })
 
+app.get('/services/:id', async (req: Request, res: Response) => {
+  try {
+    const serviceId = String(req.params.id)
+
+    const service = await prisma.service.findUnique({
+      where: {
+        id: serviceId,
+      },
+      include: {
+        providerProfile: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+                bio: true,
+              },
+            },
+          },
+        },
+        images: true,
+        reviews: {
+          where: {
+            status: 'VISIBLE',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            reviews: true,
+          },
+        },
+      },
+    })
+
+    if (!service || service.status !== 'ACTIVE') {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Service details retrieved successfully',
+      service,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve service details',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const providerId = String(req.params.id)
