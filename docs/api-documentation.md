@@ -52,6 +52,8 @@ Base path:
 |---|---|---|---|
 | GET | /health | Check Post Service status | No |
 | GET | /db-health | Check Post Service database connection | No |
+| GET | /auth-check | Check Post Service authentication middleware | Yes |
+
 
 ---
 
