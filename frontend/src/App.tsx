@@ -4,6 +4,8 @@ import { HomePage } from './pages/public/HomePage'
 import { ExplorePage } from './pages/public/ExplorePage'
 import { ServicesPage } from './pages/services/ServicesPage'
 import { ProvidersPage } from './pages/providers/ProvidersPage'
+import { LoginPage } from './pages/auth/LoginPage'
+import { RegisterPage } from './pages/auth/RegisterPage'
 
 function App() {
   return (
@@ -14,6 +16,9 @@ function App() {
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/providers" element={<ProvidersPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="*" element={<HomePage />} />
         </Route>
       </Routes>
     </BrowserRouter>
