@@ -39,6 +39,7 @@ Base path:
 | DELETE | /:id/follow | Unfollow a user | Yes |
 | GET | /:id/followers | Get user followers | No |
 | GET | /:id/following | Get users followed by this user | No |
+| POST | /:id/reports | Report a user | Yes |
 
 ---
 
@@ -68,7 +69,7 @@ Base path:
 
 ---
 
-## Phase 6 — Provider and Services APIs
+## Provider and Services APIs
 
 Base path:
 
@@ -95,6 +96,7 @@ Base path:
 | POST | /services/:id/reviews | Add review to service | Yes |
 | PATCH | /reviews/:reviewId | Update own review | Yes |
 | DELETE | /reviews/:reviewId | Delete own review | Yes |
+| POST | /services/:id/reports | Report a service | Yes |
 
 ---
 

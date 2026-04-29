@@ -241,6 +241,7 @@ model Service {
   providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
   images          ServiceImage[]
   reviews Review[]
+  reports Report[]
 }
 
 model ServiceImage {
@@ -257,6 +258,7 @@ model Report {
   reporterId     String
   reportedUserId String?
   postId         String?
+  serviceId      String?
   reason         String
   description    String?
   status         ReportStatus @default(PENDING)
@@ -267,6 +269,7 @@ model Report {
   reporter     User  @relation("ReportCreator", fields: [reporterId], references: [id], onDelete: Cascade)
   reportedUser User? @relation("ReportedUser", fields: [reportedUserId], references: [id])
   post         Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  service      Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   reviewedBy   User? @relation("ReportReviewer", fields: [reviewedById], references: [id])
 }
 

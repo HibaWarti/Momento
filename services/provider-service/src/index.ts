@@ -1057,6 +1057,74 @@ app.delete('/reviews/:reviewId', authenticate, async (req: Request, res: Respons
   }
 })
 
+app.post('/services/:id/reports', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const serviceId = String(req.params.id)
+    const { reason, description } = req.body
+
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Report reason is required',
+      })
+    }
+
+    const service = await prisma.service.findUnique({
+      where: {
+        id: serviceId,
+      },
+      select: {
+        id: true,
+        providerProfile: {
+          select: {
+            userId: true,
+          },
+        },
+        status: true,
+      },
+    })
+
+    if (!service || service.status !== 'ACTIVE') {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found',
+      })
+    }
+
+    if (service.providerProfile.userId === currentUser.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot report your own service',
+      })
+    }
+
+    const report = await prisma.report.create({
+      data: {
+        reporterId: currentUser.id,
+        serviceId,
+        reason: String(reason).trim(),
+        description:
+          description !== undefined && description !== null
+            ? String(description).trim()
+            : null,
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Service reported successfully',
+      report,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to report service',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/', async (_req: Request, res: Response) => {
   try {
     const providers = await prisma.providerProfile.findMany({
