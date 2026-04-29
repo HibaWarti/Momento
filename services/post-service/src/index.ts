@@ -492,6 +492,89 @@ app.delete(
   },
 )
 
+app.post('/:id/reactions', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+    const { type } = req.body
+
+    const allowedReactionTypes = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY']
+    const reactionType = String(type).trim().toUpperCase()
+
+    if (!allowedReactionTypes.includes(reactionType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid reaction type',
+      })
+    }
+
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    })
+
+    if (!post || post.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    if (post.status === 'HIDDEN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot react to this post',
+      })
+    }
+
+    const reaction = await prisma.reaction.upsert({
+      where: {
+        postId_userId: {
+          postId,
+          userId: currentUser.id,
+        },
+      },
+      update: {
+        type: reactionType as
+          | 'LIKE'
+          | 'LOVE'
+          | 'WOW'
+          | 'HAHA'
+          | 'SAD'
+          | 'ANGRY',
+      },
+      create: {
+        postId,
+        userId: currentUser.id,
+        type: reactionType as
+          | 'LIKE'
+          | 'LOVE'
+          | 'WOW'
+          | 'HAHA'
+          | 'SAD'
+          | 'ANGRY',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Reaction saved successfully',
+      reaction,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save reaction',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const postId = String(req.params.id)
