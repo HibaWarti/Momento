@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import { prisma } from './prisma'
+import { authenticate } from './middleware/auth.middleware'
 
 dotenv.config()
 
@@ -47,6 +48,14 @@ app.get('/db-health', async (_req: Request, res: Response) => {
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
+})
+
+app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
+  return res.status(200).json({
+    success: true,
+    message: 'Provider Service authentication is working',
+    user: res.locals.user,
+  })
 })
 
 app.listen(PORT, () => {
