@@ -137,56 +137,6 @@ app.patch('/profile/me', authenticate, async (req: Request, res: Response) => {
   }
 })
 
-app.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-
-    const user = await prisma.user.findUnique({
-      where: {
-        id: String(id),
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        username: true,
-        profilePicturePath: true,
-        bio: true,
-        role: true,
-        accountStatus: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            posts: true,
-            followers: true,
-            following: true,
-          },
-        },
-      },
-    })
-
-    if (!user || user.accountStatus === 'DELETED') {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      })
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'User profile retrieved successfully',
-      user,
-    })
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve user profile',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-  }
-})
-
 app.post('/:id/follow', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
@@ -316,6 +266,174 @@ app.delete('/:id/follow', authenticate, async (req: Request, res: Response) => {
     })
   }
 })
+
+app.get('/:id/followers', async (req: Request, res: Response) => {
+  try {
+    const userId = String(req.params.id)
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        accountStatus: true,
+      },
+    })
+
+    if (!user || user.accountStatus === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      })
+    }
+
+    const followers = await prisma.follow.findMany({
+      where: {
+        followingId: userId,
+      },
+      include: {
+        follower: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+            bio: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Followers retrieved successfully',
+      followers: followers.map((follow) => follow.follower),
+      count: followers.length,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve followers',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/:id/following', async (req: Request, res: Response) => {
+  try {
+    const userId = String(req.params.id)
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        accountStatus: true,
+      },
+    })
+
+    if (!user || user.accountStatus === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      })
+    }
+
+    const following = await prisma.follow.findMany({
+      where: {
+        followerId: userId,
+      },
+      include: {
+        following: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+            bio: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Following retrieved successfully',
+      following: following.map((follow) => follow.following),
+      count: following.length,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve following',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: String(id),
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        profilePicturePath: true,
+        bio: true,
+        role: true,
+        accountStatus: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            posts: true,
+            followers: true,
+            following: true,
+          },
+        },
+      },
+    })
+
+    if (!user || user.accountStatus === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'User profile retrieved successfully',
+      user,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve user profile',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+
 
 app.listen(PORT, () => {
   console.log(`User Service running on http://localhost:${PORT}`)

@@ -293,7 +293,8 @@ Base path:
 | GET | /:id |
 | POST | /:id/follow |
 | DELETE | /:id/follow/ |
-
+| GET | /:id/followers |
+| GET | /:id/following |
 
 ---
 
