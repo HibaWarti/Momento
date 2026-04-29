@@ -265,6 +265,104 @@ app.get('/me/profile', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.patch('/me/profile', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string; role?: string }
+    const { professionalName, professionalDescription, phone, city } = req.body
+
+    if (currentUser.role !== 'PROVIDER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Provider access required',
+      })
+    }
+
+    if (
+      professionalName === undefined &&
+      professionalDescription === undefined &&
+      phone === undefined &&
+      city === undefined
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one field is required',
+      })
+    }
+
+    const providerProfile = await prisma.providerProfile.findUnique({
+      where: {
+        userId: currentUser.id,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!providerProfile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Provider profile not found',
+      })
+    }
+
+    const updateData: {
+      professionalName?: string
+      professionalDescription?: string
+      phone?: string
+      city?: string
+    } = {}
+
+    if (professionalName !== undefined) {
+      updateData.professionalName = String(professionalName).trim()
+    }
+    if (professionalDescription !== undefined) {
+      updateData.professionalDescription = String(professionalDescription).trim()
+    }
+    if (phone !== undefined) {
+      updateData.phone = String(phone).trim()
+    }
+    if (city !== undefined) {
+      updateData.city = String(city).trim()
+    }
+
+    const updatedProfile = await prisma.providerProfile.update({
+      where: {
+        userId: currentUser.id,
+      },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+            bio: true,
+          },
+        },
+        _count: {
+          select: {
+            services: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Provider profile updated successfully',
+      providerProfile: updatedProfile,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update provider profile',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const providerId = String(req.params.id)
