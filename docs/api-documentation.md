@@ -42,7 +42,7 @@ Base path:
 
 ---
 
-## Posts APIs
+## Phase 5.2 — Post APIs
 
 Base path:
 
@@ -54,6 +54,16 @@ Base path:
 | GET | /db-health | Check Post Service database connection | No |
 | GET | /auth-check | Check Post Service authentication middleware | Yes |
 | POST | / | Create a new post | Yes |
+| GET | / | Get feed/posts list | No |
+| GET | /:id | Get post details | No |
+| PATCH | /:id | Update own post | Yes |
+| DELETE | /:id | Delete own post | Yes |
+| POST | /:id/comments | Add comment to post | Yes |
+| GET | /:id/comments | Get comments of a post | No |
+| DELETE | /comments/:commentId | Delete own comment | Yes |
+| POST | /:id/reactions | Add or update reaction | Yes |
+| DELETE | /:id/reactions | Remove reaction | Yes |
+| POST | /:id/reports | Report a post | Yes |
 
 
 ---
