@@ -432,6 +432,66 @@ app.get('/:id/comments', async (req: Request, res: Response) => {
   }
 })
 
+app.delete(
+  '/comments/:commentId',
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const currentUser = res.locals.user as { id: string }
+      const commentId = String(req.params.commentId)
+
+      const comment = await prisma.comment.findUnique({
+        where: {
+          id: commentId,
+        },
+        select: {
+          id: true,
+          userId: true,
+          post: {
+            select: {
+              authorId: true,
+            },
+          },
+        },
+      })
+
+      if (!comment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Comment not found',
+        })
+      }
+
+      const canDelete =
+        comment.userId === currentUser.id || comment.post.authorId === currentUser.id
+
+      if (!canDelete) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not allowed to delete this comment',
+        })
+      }
+
+      await prisma.comment.delete({
+        where: {
+          id: commentId,
+        },
+      })
+
+      return res.status(200).json({
+        success: true,
+        message: 'Comment deleted successfully',
+      })
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete comment',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  },
+)
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const postId = String(req.params.id)
