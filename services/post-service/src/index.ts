@@ -50,6 +50,14 @@ app.get('/db-health', async (_req: Request, res: Response) => {
   }
 })
 
+app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
+  return res.status(200).json({
+    success: true,
+    message: 'Post Service authentication is working',
+    user: res.locals.user,
+  })
+})
+
 app.post('/', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
@@ -144,15 +152,6 @@ app.get('/', async (_req: Request, res: Response) => {
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
-})
-
-
-app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
-  return res.status(200).json({
-    success: true,
-    message: 'Post Service authentication is working',
-    user: res.locals.user,
-  })
 })
 
 app.patch('/:id', authenticate, async (req: Request, res: Response) => {

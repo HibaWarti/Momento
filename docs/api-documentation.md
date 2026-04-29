@@ -42,7 +42,7 @@ Base path:
 
 ---
 
-## Phase 5.2 — Post APIs
+## Posts APIs
 
 Base path:
 
