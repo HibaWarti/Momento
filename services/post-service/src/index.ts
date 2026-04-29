@@ -370,6 +370,68 @@ app.post('/:id/comments', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.get('/:id/comments', async (req: Request, res: Response) => {
+  try {
+    const postId = String(req.params.id)
+
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    })
+
+    if (!post || post.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    if (post.status === 'HIDDEN') {
+      return res.status(403).json({
+        success: false,
+        message: 'This post is hidden',
+      })
+    }
+
+    const comments = await prisma.comment.findMany({
+      where: {
+        postId,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Comments retrieved successfully',
+      comments,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve comments',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const postId = String(req.params.id)
