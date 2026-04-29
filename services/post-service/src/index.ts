@@ -102,6 +102,50 @@ app.post('/', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.get('/', async (_req: Request, res: Response) => {
+  try {
+    const posts = await prisma.post.findMany({
+      where: {
+        status: 'ACTIVE',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+        images: true,
+        _count: {
+          select: {
+            comments: true,
+            reactions: true,
+            reports: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Posts retrieved successfully',
+      posts,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve posts',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 
 app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
   return res.status(200).json({
