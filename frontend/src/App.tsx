@@ -1,16 +1,22 @@
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { PublicLayout } from './components/layout/PublicLayout'
+import { HomePage } from './pages/public/HomePage'
+import { ExplorePage } from './pages/public/ExplorePage'
+import { ServicesPage } from './pages/services/ServicesPage'
+import { ProvidersPage } from './pages/providers/ProvidersPage'
+
 function App() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <h1 className="text-5xl font-bold">Momento</h1>
-        <p className="text-slate-300">
-          Social platform for memories, inspiration, and service providers.
-        </p>
-        <button className="rounded-xl bg-white px-6 py-3 font-semibold text-slate-950">
-          Frontend Ready
-        </button>
-      </div>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/providers" element={<ProvidersPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
 
