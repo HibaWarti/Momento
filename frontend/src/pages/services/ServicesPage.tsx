@@ -1,30 +1,9 @@
-import { Card } from '../../components/ui/Card'
-import { Button } from '../../components/ui/Button'
+import { Search, SlidersHorizontal } from 'lucide-react'
+import { ServiceCard } from '../../components/services/ServiceCard'
 import { Badge } from '../../components/ui/Badge'
-
-const services = [
-  {
-    title: 'Event Photography',
-    provider: 'Lina Studio',
-    city: 'Casablanca',
-    category: 'Photography',
-    price: 'From 800 MAD',
-  },
-  {
-    title: 'Birthday Decoration',
-    provider: 'Bloom Events',
-    city: 'Rabat',
-    category: 'Decoration',
-    price: 'Discuss price',
-  },
-  {
-    title: 'Makeup Artist',
-    provider: 'Nora Beauty',
-    city: 'Marrakech',
-    category: 'Beauty',
-    price: 'From 500 MAD',
-  },
-]
+import { Button } from '../../components/ui/Button'
+import { Card } from '../../components/ui/Card'
+import { mockServices } from '../../data/mockServices'
 
 export function ServicesPage() {
   return (
@@ -33,28 +12,47 @@ export function ServicesPage() {
         <div>
           <Badge variant="purple">Services</Badge>
           <h1 className="mt-4 text-3xl font-bold text-slate-950">Find service providers</h1>
-          <p className="mt-2 text-slate-600">
-            Contact providers directly to discuss details, availability, and final price.
+          <p className="mt-2 max-w-2xl text-slate-600">
+            Browse services and contact providers directly to discuss availability, details,
+            and final price.
           </p>
         </div>
 
-        <Button variant="outline">Filter services</Button>
+        <Button variant="outline">
+          <SlidersHorizontal className="mr-2 inline" size={16} />
+          Filters
+        </Button>
       </div>
 
+      <Card className="mt-8">
+        <div className="flex flex-col gap-4 md:flex-row">
+          <label className="flex flex-1 items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+            <Search size={18} className="text-slate-400" />
+            <input
+              placeholder="Search photography, decoration, makeup..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+            />
+          </label>
+
+          <select className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none">
+            <option>All cities</option>
+            <option>Casablanca</option>
+            <option>Rabat</option>
+            <option>Marrakech</option>
+          </select>
+
+          <select className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none">
+            <option>All categories</option>
+            <option>Photography</option>
+            <option>Decoration</option>
+            <option>Beauty</option>
+          </select>
+        </div>
+      </Card>
+
       <div className="mt-8 grid gap-6 md:grid-cols-3">
-        {services.map((service) => (
-          <Card key={service.title} className="overflow-hidden p-0">
-            <div className="h-44 bg-gradient-to-br from-orange-200 to-pink-200" />
-            <div className="p-6">
-              <Badge variant="orange">{service.category}</Badge>
-              <h3 className="mt-4 text-lg font-bold text-slate-950">{service.title}</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {service.provider} · {service.city}
-              </p>
-              <p className="mt-4 font-semibold text-slate-950">{service.price}</p>
-              <Button className="mt-5 w-full">Contact Provider</Button>
-            </div>
-          </Card>
+        {mockServices.map((service) => (
+          <ServiceCard key={service.id} service={service} />
         ))}
       </div>
     </main>

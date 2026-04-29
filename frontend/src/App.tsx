@@ -8,6 +8,8 @@ import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { FeedPage } from './pages/feed/FeedPage'
 import { ProfilePage } from './pages/profile/ProfilePage'
+import { ServiceDetailsPage } from './pages/services/ServiceDetailsPage'
+import { ProviderProfilePage } from './pages/providers/ProviderProfilePage'
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/feed" element={<FeedPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/services/:serviceId" element={<ServiceDetailsPage />} />
+          <Route path="/providers/:providerId" element={<ProviderProfilePage />} /> 
           <Route path="*" element={<HomePage />} />
         </Route>
       </Routes>
