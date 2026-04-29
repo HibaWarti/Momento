@@ -575,6 +575,52 @@ app.post('/:id/reactions', authenticate, async (req: Request, res: Response) => 
   }
 })
 
+app.delete('/:id/reactions', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+
+    const existingReaction = await prisma.reaction.findUnique({
+      where: {
+        postId_userId: {
+          postId,
+          userId: currentUser.id,
+        },
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!existingReaction) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reaction not found',
+      })
+    }
+
+    await prisma.reaction.delete({
+      where: {
+        postId_userId: {
+          postId,
+          userId: currentUser.id,
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Reaction removed successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to remove reaction',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/:id', async (req: Request, res: Response) => {
   try {
     const postId = String(req.params.id)
