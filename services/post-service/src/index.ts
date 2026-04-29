@@ -50,6 +50,59 @@ app.get('/db-health', async (_req: Request, res: Response) => {
   }
 })
 
+app.post('/', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const { content } = req.body
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Post content is required',
+      })
+    }
+
+    const post = await prisma.post.create({
+      data: {
+        content: String(content).trim(),
+        authorId: currentUser.id,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+        images: true,
+        _count: {
+          select: {
+            comments: true,
+            reactions: true,
+            reports: true,
+          },
+        },
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Post created successfully',
+      post,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create post',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+
 app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
   return res.status(200).json({
     success: true,
