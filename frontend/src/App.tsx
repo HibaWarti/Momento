@@ -7,6 +7,7 @@ import { ProvidersPage } from './pages/providers/ProvidersPage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { FeedPage } from './pages/feed/FeedPage'
+import { ProfilePage } from './pages/profile/ProfilePage'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/feed" element={<FeedPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="*" element={<HomePage />} />
         </Route>
       </Routes>
