@@ -210,6 +210,69 @@ app.get('/', async (_req: Request, res: Response) => {
   }
 })
 
+app.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const providerId = String(req.params.id)
+
+    const provider = await prisma.providerProfile.findUnique({
+      where: {
+        id: providerId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+            bio: true,
+          },
+        },
+        services: {
+          where: {
+            status: 'ACTIVE',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          include: {
+            _count: {
+              select: {
+                reviews: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            services: true,
+          },
+        },
+      },
+    })
+
+    if (!provider || provider.providerStatus === 'SUSPENDED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Provider profile not found',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Provider profile retrieved successfully',
+      provider,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve provider profile',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Provider Service running on http://localhost:${PORT}`)
 })
