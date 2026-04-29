@@ -137,6 +137,57 @@ app.patch('/profile/me', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: String(id),
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        profilePicturePath: true,
+        bio: true,
+        role: true,
+        accountStatus: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            posts: true,
+            followers: true,
+            following: true,
+          },
+        },
+      },
+    })
+
+    if (!user || user.accountStatus === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'User profile retrieved successfully',
+      user,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve user profile',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+
 app.listen(PORT, () => {
   console.log(`User Service running on http://localhost:${PORT}`)
 })
