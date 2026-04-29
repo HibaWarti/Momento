@@ -1,0 +1,94 @@
+# Momento — API Documentation
+
+This document contains the APIs implemented in Momento.
+
+Each section is updated after finishing a backend phase.
+
+---
+
+## Authentication APIs
+
+Base path:
+
+/api/auth
+
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| GET | /health | Check Auth Service status | No |
+| GET | /db-health | Check Auth Service database connection | No |
+| POST | /register | Register a new user | No |
+| POST | /login | Login user and return JWT token | No |
+| GET | /me | Get authenticated user from JWT token | Yes |
+
+---
+
+## User/Profile APIs
+
+Base path:
+
+/api/users
+
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| GET | /health | Check User Service status | No |
+| GET | /db-health | Check User Service database connection | No |
+| GET | /profile/me | Get current authenticated user profile | Yes |
+| PATCH | /profile/me | Update current authenticated user profile | Yes |
+| GET | /:id | Get public user profile by ID | No |
+| POST | /:id/follow | Follow a user | Yes |
+| DELETE | /:id/follow | Unfollow a user | Yes |
+| GET | /:id/followers | Get user followers | No |
+| GET | /:id/following | Get users followed by this user | No |
+
+---
+
+## Posts APIs
+
+Base path:
+
+/api/posts
+
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| GET | /health | Check Post Service status | No |
+| GET | /db-health | Check Post Service database connection | No |
+
+---
+
+## Provider and Services APIs
+
+Base path:
+
+/api/providers
+
+To be added after Phase 7.
+
+---
+
+## Admin and Moderation APIs
+
+Base path:
+
+/api/admin
+
+To be added after Phase 8.
+
+---
+
+## Notifications APIs
+
+Base path:
+
+/api/notifications
+
+To be added after Phase 9.
+
+---
+
+## Chat APIs
+
+Base path:
+
+/api/chats
+
+To be added after Phase 10.
