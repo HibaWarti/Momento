@@ -141,6 +141,33 @@ app.post('/requests', authenticate, async (req: Request, res: Response) => {
   }
 })
 
+app.get('/requests/me', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+
+    const providerRequests = await prisma.providerRequest.findMany({
+      where: {
+        userId: currentUser.id,
+      },
+      orderBy: {
+        submittedAt: 'desc',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Provider requests retrieved successfully',
+      providerRequests,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve provider requests',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Provider Service running on http://localhost:${PORT}`)
 })
