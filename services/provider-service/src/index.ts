@@ -58,6 +58,89 @@ app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
   })
 })
 
+app.post('/requests', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string; role?: string }
+    const {
+      professionalName,
+      professionalDescription,
+      phone,
+      city,
+      cinNumber,
+      cinPicturePath,
+      additionalInfo,
+    } = req.body
+
+    if (
+      !professionalName ||
+      !professionalDescription ||
+      !phone ||
+      !city ||
+      !cinNumber ||
+      !cinPicturePath
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'All required fields must be provided',
+      })
+    }
+
+    if (currentUser.role === 'PROVIDER') {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already a provider',
+      })
+    }
+
+    const existingPendingRequest = await prisma.providerRequest.findFirst({
+      where: {
+        userId: currentUser.id,
+        status: {
+          in: ['PENDING', 'REVIEWING'],
+        },
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (existingPendingRequest) {
+      return res.status(409).json({
+        success: false,
+        message: 'You already have a pending provider request',
+      })
+    }
+
+    const providerRequest = await prisma.providerRequest.create({
+      data: {
+        userId: currentUser.id,
+        professionalName: String(professionalName).trim(),
+        professionalDescription: String(professionalDescription).trim(),
+        phone: String(phone).trim(),
+        city: String(city).trim(),
+        cinNumber: String(cinNumber).trim(),
+        cinPicturePath: String(cinPicturePath).trim(),
+        additionalInfo:
+          additionalInfo !== undefined && additionalInfo !== null
+            ? String(additionalInfo).trim()
+            : null,
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Provider request submitted successfully',
+      providerRequest,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to submit provider request',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Provider Service running on http://localhost:${PORT}`)
 })
