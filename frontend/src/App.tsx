@@ -35,7 +35,7 @@ function App() {
           <Route path={paths.feed} element={<FeedPage />} />
           <Route path={paths.profile} element={<ProfilePage />} />
           <Route path={paths.notifications} element={<NotificationsPage />} />
-          <Route path={paths.adminDashboard} element={<AdminDashboardPage />} />
+          <Route path={paths.admin} element={<AdminDashboardPage />} />
           <Route path={paths.adminProviderRequests} element={<AdminProviderRequestsPage />} />
           <Route path={paths.adminReports} element={<AdminReportsPage />} />
           <Route path="*" element={<NotFoundPage />} />

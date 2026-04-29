@@ -63,9 +63,16 @@ momento/
 
 ```
 
-## Local Development
+## Documentation
 
-For local setup instructions, see: docs/local-development.md
+Project documentation is available in the `docs/` folder.
+
+Main documents:
+
+- `docs/conception.md`
+- `docs/architecture.md`
+- `docs/local-development.md`
+- `docs/frontend-structure.md`
 
 Main development commands:
 
