@@ -291,7 +291,7 @@ Base path:
 | GET | /profile/me |
 | PATCH | /profile/me |
 | GET | /:id |
-
+| POST | /:id/follow |
 
 
 ---

@@ -187,6 +187,78 @@ app.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
+app.post('/:id/follow', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const userToFollowId = String(req.params.id)
+
+    if (!userToFollowId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required',
+      })
+    }
+
+    if (currentUser.id === userToFollowId) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot follow yourself',
+      })
+    }
+
+    const userToFollow = await prisma.user.findUnique({
+      where: {
+        id: userToFollowId,
+      },
+      select: {
+        id: true,
+        accountStatus: true,
+      },
+    })
+
+    if (!userToFollow || userToFollow.accountStatus === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'User to follow not found',
+      })
+    }
+
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: currentUser.id,
+          followingId: userToFollowId,
+        },
+      },
+    })
+
+    if (existingFollow) {
+      return res.status(409).json({
+        success: false,
+        message: 'You already follow this user',
+      })
+    }
+
+    const follow = await prisma.follow.create({
+      data: {
+        followerId: currentUser.id,
+        followingId: userToFollowId,
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'User followed successfully',
+      follow,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to follow user',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
 
 app.listen(PORT, () => {
   console.log(`User Service running on http://localhost:${PORT}`)
