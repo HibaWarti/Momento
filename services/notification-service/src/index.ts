@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import { prisma } from './prisma'
 
 dotenv.config()
 
@@ -27,6 +28,25 @@ app.get('/health', (_req: Request, res: Response) => {
     message: 'Notification Service is running',
     service: 'notification-service',
   })
+})
+
+app.get('/db-health', async (_req: Request, res: Response) => {
+  try {
+    const notificationCount = await prisma.notification.count()
+
+    return res.status(200).json({
+      success: true,
+      message: 'Notification Service database connection is working',
+      service: 'notification-service',
+      notifications: notificationCount,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Notification Service database connection failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
 })
 
 app.listen(PORT, () => {
