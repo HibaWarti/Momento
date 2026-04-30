@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
 import { PublicLayout } from './components/layout/PublicLayout'
 import { HomePage } from './pages/public/HomePage'
 import { ExplorePage } from './pages/public/ExplorePage'
@@ -17,8 +18,29 @@ import { AdminProviderRequestsPage } from './pages/admin/AdminProviderRequestsPa
 import { AdminReportsPage } from './pages/admin/AdminReportsPage'
 import { NotFoundPage } from './pages/public/NotFoundPage'
 import { paths } from './routes/paths'
+import { ProtectedRoute } from './routes/ProtectedRoute'
+import { AdminRoute } from './routes/AdminRoute'
+import { useAuthStore } from './store/authStore'
 
 function App() {
+  const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser)
+  const isLoading = useAuthStore((state) => state.isLoading)
+
+  useEffect(() => {
+    loadCurrentUser()
+  }, [loadCurrentUser])
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-orange-200 border-t-orange-500"></div>
+          <p className="mt-4 text-slate-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <BrowserRouter>
       <Routes>
@@ -28,16 +50,23 @@ function App() {
           <Route path={paths.services} element={<ServicesPage />} />
           <Route path={paths.serviceDetails} element={<ServiceDetailsPage />} />
           <Route path={paths.providers} element={<ProvidersPage />} />
-          <Route path={paths.providerProfile} element={<ProviderProfilePage />} /> 
-          <Route path={paths.providerRequest} element={<ProviderRequestPage />} />
+          <Route path={paths.providerProfile} element={<ProviderProfilePage />} />
           <Route path={paths.login} element={<LoginPage />} />
           <Route path={paths.register} element={<RegisterPage />} />
-          <Route path={paths.feed} element={<FeedPage />} />
-          <Route path={paths.profile} element={<ProfilePage />} />
-          <Route path={paths.notifications} element={<NotificationsPage />} />
-          <Route path={paths.admin} element={<AdminDashboardPage />} />
-          <Route path={paths.adminProviderRequests} element={<AdminProviderRequestsPage />} />
-          <Route path={paths.adminReports} element={<AdminReportsPage />} />
+
+          <Route element={<ProtectedRoute />}>
+            <Route path={paths.feed} element={<FeedPage />} />
+            <Route path={paths.profile} element={<ProfilePage />} />
+            <Route path={paths.notifications} element={<NotificationsPage />} />
+            <Route path={paths.providerRequest} element={<ProviderRequestPage />} />
+          </Route>
+
+          <Route element={<AdminRoute />}>
+            <Route path={paths.admin} element={<AdminDashboardPage />} />
+            <Route path={paths.adminProviderRequests} element={<AdminProviderRequestsPage />} />
+            <Route path={paths.adminReports} element={<AdminReportsPage />} />
+          </Route>
+
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

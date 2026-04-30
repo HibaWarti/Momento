@@ -1,10 +1,39 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
+import { useAuthStore } from '../../store/authStore'
+import { paths } from '../../routes/paths'
 
 export function LoginPage() {
+  const navigate = useNavigate()
+  const login = useAuthStore((state) => state.login)
+  const isAuthLoading = useAuthStore((state) => state.isAuthLoading)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const error = useAuthStore((state) => state.error)
+  const clearError = useAuthStore((state) => state.clearError)
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(paths.feed)
+    }
+  }, [isAuthenticated, navigate])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    clearError()
+    try {
+      await login(email, password)
+      navigate(paths.feed)
+    } catch {
+    }
+  }
+
   return (
     <main className="flex min-h-[calc(100vh-74px)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
@@ -20,12 +49,15 @@ export function LoginPage() {
         </div>
 
         <Card>
-          <form className="space-y-5">
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
             <Input
               label="Email"
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
 
             <Input
@@ -33,6 +65,8 @@ export function LoginPage() {
               type="password"
               placeholder="Enter your password"
               autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
 
             <div className="flex items-center justify-between text-sm">
@@ -49,8 +83,8 @@ export function LoginPage() {
               </button>
             </div>
 
-            <Button type="button" className="w-full">
-              Login
+            <Button type="submit" className="w-full" disabled={isAuthLoading}>
+              {isAuthLoading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
 

@@ -5,9 +5,16 @@ import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { UserCard } from '../../components/users/UserCard'
 import { mockPosts } from '../../data/mockPosts'
-import { mockCurrentUser, mockSuggestedUsers } from '../../data/mockUsers'
+import { mockSuggestedUsers } from '../../data/mockUsers'
+import { useAuthStore } from '../../store/authStore'
 
 export function ProfilePage() {
+  const user = useAuthStore((state) => state.user)
+
+  if (!user) {
+    return null
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <Card className="overflow-hidden p-0">
@@ -17,21 +24,20 @@ export function ProfilePage() {
           <div className="-mt-14 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
               <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-orange-500 text-2xl font-bold text-white shadow-sm">
-                {mockCurrentUser.avatar}
+                {user.firstName[0]}
               </div>
 
               <div className="pb-2">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-bold text-slate-950">{mockCurrentUser.name}</h1>
-                  <Badge variant="orange">{mockCurrentUser.role}</Badge>
+                  <h1 className="text-3xl font-bold text-slate-950">{user.firstName} {user.lastName}</h1>
+                  <Badge variant="orange">{user.role}</Badge>
                 </div>
 
-                <p className="mt-1 text-slate-500">@{mockCurrentUser.username}</p>
+                <p className="mt-1 text-slate-500">@{user.username}</p>
 
-                <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-                  <MapPin size={16} />
-                  {mockCurrentUser.city}
-                </p>
+                {user.bio && (
+                  <p className="mt-3 leading-7 text-slate-700">{user.bio}</p>
+                )}
               </div>
             </div>
 
@@ -48,25 +54,19 @@ export function ProfilePage() {
             </div>
           </div>
 
-          <p className="mt-6 max-w-2xl leading-7 text-slate-700">{mockCurrentUser.bio}</p>
-
           <div className="mt-6 grid max-w-xl grid-cols-3 gap-4">
             <div className="rounded-2xl bg-orange-50 p-4 text-center">
-              <p className="text-2xl font-bold text-slate-950">{mockCurrentUser.postsCount}</p>
+              <p className="text-2xl font-bold text-slate-950">0</p>
               <p className="text-sm text-slate-500">Posts</p>
             </div>
 
             <div className="rounded-2xl bg-violet-50 p-4 text-center">
-              <p className="text-2xl font-bold text-slate-950">
-                {mockCurrentUser.followersCount}
-              </p>
+              <p className="text-2xl font-bold text-slate-950">0</p>
               <p className="text-sm text-slate-500">Followers</p>
             </div>
 
             <div className="rounded-2xl bg-pink-50 p-4 text-center">
-              <p className="text-2xl font-bold text-slate-950">
-                {mockCurrentUser.followingCount}
-              </p>
+              <p className="text-2xl font-bold text-slate-950">0</p>
               <p className="text-sm text-slate-500">Following</p>
             </div>
           </div>
