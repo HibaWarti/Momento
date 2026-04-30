@@ -100,7 +100,7 @@ Base path:
 
 ---
 
-## Phase 7 — Admin and Moderation APIs
+## Admin and Moderation APIs
 
 Base path:
 
