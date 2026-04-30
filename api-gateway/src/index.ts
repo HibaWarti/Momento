@@ -18,6 +18,7 @@ const POST_SERVICE_URL = process.env.POST_SERVICE_URL || 'http://localhost:3003'
 const PROVIDER_SERVICE_URL = process.env.PROVIDER_SERVICE_URL || 'http://localhost:3004'
 const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3005'
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006'
+const CHAT_SERVICE_URL = process.env.CHAT_SERVICE_URL || 'http://localhost:3007'
 
 app.use(helmet())
 app.use(
@@ -100,6 +101,17 @@ app.use(
     changeOrigin: true,
     pathRewrite: {
       '^/api/notifications': '',
+    },
+  }),
+)
+
+app.use(
+  '/api/chats',
+  createProxyMiddleware({
+    target: CHAT_SERVICE_URL,
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/chats': '',
     },
   }),
 )

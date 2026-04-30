@@ -15,7 +15,8 @@
     "dev:provider": "npm run dev --prefix services/provider-service",
     "dev:admin": "npm run dev --prefix services/admin-service",
     "dev:notification": "npm run dev --prefix services/notification-service",
-    "dev:backend": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:post\" \"npm run dev:provider\" \"npm run dev:admin\" \"npm run dev:notification\"",
+    "dev:chat": "npm run dev --prefix services/chat-service",
+    "dev:backend": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:post\" \"npm run dev:provider\" \"npm run dev:admin\" \"npm run dev:notification\" \"npm run dev:chat\"",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\""
   },
   "repository": {
