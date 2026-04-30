@@ -34,6 +34,7 @@ Base path:
 | GET | /db-health | Check User Service database connection | No |
 | GET | /profile/me | Get current authenticated user profile | Yes |
 | PATCH | /profile/me | Update current authenticated user profile | Yes |
+| PATCH | /profile/me/picture | Upload/update current user profile picture | Yes |
 | GET | /:id | Get public user profile by ID | No |
 | POST | /:id/follow | Follow a user | Yes |
 | DELETE | /:id/follow | Unfollow a user | Yes |
@@ -65,7 +66,8 @@ Base path:
 | POST | /:id/reactions | Add or update reaction | Yes |
 | DELETE | /:id/reactions | Remove reaction | Yes |
 | POST | /:id/reports | Report a post | Yes |
-
+| POST | /:id/images | Upload images for a post | Yes |
+| DELETE | /:id/images/:imageId | Delete a post image | Yes |
 
 ---
 
@@ -81,6 +83,7 @@ Base path:
 | GET | /db-health | Check Provider Service database connection | No |
 | GET | /auth-check | Check Provider Service authentication middleware | Yes |
 | POST | /requests | Submit provider request | Yes |
+| POST | /requests/cin-picture | Upload CIN picture for provider request | Yes |
 | GET | /requests/me | Get current user's provider requests | Yes |
 | GET | / | Get providers list | No |
 | GET | /:id | Get provider profile by ID | No |
@@ -97,45 +100,12 @@ Base path:
 | PATCH | /reviews/:reviewId | Update own review | Yes |
 | DELETE | /reviews/:reviewId | Delete own review | Yes |
 | POST | /services/:id/reports | Report a service | Yes |
-
----
-
-## Phase 8 — Upload and Media APIs
-
-### User Service
-
-Base path:
-
-/api/users
-
-| Method | Route | Description | Auth Required |
-|---|---|---|---|
-| PATCH | /profile/me/picture | Upload/update current user profile picture | Yes |
-
-### Post Service
-
-Base path:
-
-/api/posts
-
-| Method | Route | Description | Auth Required |
-|---|---|---|---|
-| POST | /:id/images | Upload images for a post | Yes |
-| DELETE | /:id/images/:imageId | Delete a post image | Yes |
-
-### Provider Service
-
-Base path:
-
-/api/providers
-
-| Method | Route | Description | Auth Required |
-|---|---|---|---|
-| POST | /requests/cin-picture | Upload CIN picture for provider request | Yes |
 | POST | /services/:id/images | Upload images for a service | Yes |
 | DELETE | /services/:id/images/:imageId | Delete a service image | Yes |
 
-### Static Uploads
+---
+
+## Static Uploads
 
 Base path:
 
@@ -154,7 +124,7 @@ Cloudinary or another cloud storage service should be used later for production 
 
 ---
 
-## Phase 7 — Admin and Moderation APIs
+## Admin and Moderation APIs
 
 Base path:
 
@@ -199,7 +169,21 @@ Base path:
 
 /api/notifications
 
-To be added after Phase 9.
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| GET | /health | Check Notification Service status | No |
+| GET | /db-health | Check Notification Service database connection | No |
+| GET | /auth-check | Check Notification Service authentication middleware | Yes |
+| GET | / | Get authenticated user's notifications | Yes |
+| GET | /unread-count | Get unread notifications count | Yes |
+| PATCH | /:id/read | Mark notification as read | Yes |
+| PATCH | /read-all | Mark all notifications as read | Yes |
+| DELETE | /:id | Delete notification | Yes |
+| POST | /internal | Create notification from another service | Internal |
+
+Important note:
+Notifications are implemented with normal HTTP requests in this version.
+Real-time notifications can be added later as a future improvement.
 
 ---
 
