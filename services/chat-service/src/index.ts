@@ -214,6 +214,94 @@ app.post('/conversations', authenticate, async (req: Request, res: Response) => 
   }
 })
 
+app.get('/conversations', authenticate, async (_req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        participants: {
+          some: {
+            userId: currentUser.id,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+                role: true,
+              },
+            },
+          },
+        },
+        messages: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+          include: {
+            sender: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            messages: true,
+          },
+        },
+      },
+    })
+
+    const conversationsWithUnreadCount = await Promise.all(
+      conversations.map(async (conversation) => {
+        const unreadCount = await prisma.message.count({
+          where: {
+            conversationId: conversation.id,
+            isRead: false,
+            senderId: {
+              not: currentUser.id,
+            },
+          },
+        })
+
+        return {
+          ...conversation,
+          unreadCount,
+        }
+      }),
+    )
+
+    return res.status(200).json({
+      success: true,
+      message: 'Conversations retrieved successfully',
+      conversations: conversationsWithUnreadCount,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve conversations',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Chat Service running on port ${PORT}`)
 })
