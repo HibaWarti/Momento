@@ -60,6 +60,160 @@ app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
   })
 })
 
+app.post('/conversations', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const { participantId } = req.body
+
+    if (!participantId || !String(participantId).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Participant ID is required',
+      })
+    }
+
+    const otherUserId = String(participantId)
+
+    if (currentUser.id === otherUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot create a conversation with yourself',
+      })
+    }
+
+    const otherUser = await prisma.user.findUnique({
+      where: {
+        id: otherUserId,
+      },
+      select: {
+        id: true,
+        accountStatus: true,
+      },
+    })
+
+    if (!otherUser || otherUser.accountStatus !== 'ACTIVE') {
+      return res.status(404).json({
+        success: false,
+        message: 'Participant not found or inactive',
+      })
+    }
+
+    const existingConversations = await prisma.conversation.findMany({
+      where: {
+        participants: {
+          some: {
+            userId: currentUser.id,
+          },
+        },
+      },
+      include: {
+        participants: true,
+      },
+    })
+
+    const existingConversation = existingConversations.find((conversation) => {
+      const participantIds = conversation.participants.map((participant) => participant.userId)
+
+      return (
+        participantIds.length === 2 &&
+        participantIds.includes(currentUser.id) &&
+        participantIds.includes(otherUserId)
+      )
+    })
+
+    if (existingConversation) {
+      const conversation = await prisma.conversation.findUnique({
+        where: {
+          id: existingConversation.id,
+        },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  username: true,
+                  profilePicturePath: true,
+                  role: true,
+                },
+              },
+            },
+          },
+          messages: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 1,
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  username: true,
+                  profilePicturePath: true,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      return res.status(200).json({
+        success: true,
+        message: 'Existing conversation retrieved successfully',
+        conversation,
+      })
+    }
+
+    const conversation = await prisma.conversation.create({
+      data: {
+        participants: {
+          create: [
+            {
+              userId: currentUser.id,
+            },
+            {
+              userId: otherUserId,
+            },
+          ],
+        },
+      },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+                role: true,
+              },
+            },
+          },
+        },
+        messages: true,
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Conversation created successfully',
+      conversation,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create or retrieve conversation',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Chat Service running on port ${PORT}`)
 })
