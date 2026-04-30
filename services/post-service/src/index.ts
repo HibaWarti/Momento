@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import { prisma } from './prisma'
 import { authenticate } from './middleware/auth.middleware'
+import { postImageUpload } from './utils/upload'
 
 dotenv.config()
 
@@ -772,6 +773,125 @@ app.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
+app.post('/:id/images', authenticate, (req: Request, res: Response) => {
+  postImageUpload.array('images', 5)(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err instanceof Error ? err.message : 'File upload failed',
+      })
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one image is required',
+      })
+    }
+
+    try {
+      const currentUser = res.locals.user as { id: string }
+      const postId = String(req.params.id)
+
+      const post = await prisma.post.findUnique({
+        where: {
+          id: postId,
+        },
+        select: {
+          id: true,
+          authorId: true,
+          status: true,
+        },
+      })
+
+      if (!post || post.status === 'DELETED') {
+        return res.status(404).json({
+          success: false,
+          message: 'Post not found',
+        })
+      }
+
+      if (post.authorId !== currentUser.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only upload images to your own posts',
+        })
+      }
+
+      const imageFiles = req.files as Express.Multer.File[]
+      const postImagesData = imageFiles.map((file) => ({
+        imagePath: `/uploads/posts/${file.filename}`,
+        postId,
+      }))
+
+      const createdImages = await prisma.postImage.createManyAndReturn({
+        data: postImagesData,
+      })
+
+      return res.status(201).json({
+        success: true,
+        message: 'Post images uploaded successfully',
+        images: createdImages,
+      })
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload post images',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  })
+})
+
+app.delete('/:id/images/:imageId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+    const imageId = String(req.params.imageId)
+
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        id: true,
+        authorId: true,
+      },
+    })
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    if (post.authorId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete images from your own posts',
+      })
+    }
+
+    await prisma.postImage.delete({
+      where: {
+        id: imageId,
+        postId,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Post image deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete post image',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
 
 app.listen(PORT, () => {
   console.log(`Post Service running on http://localhost:${PORT}`)
