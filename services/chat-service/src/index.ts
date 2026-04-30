@@ -490,6 +490,50 @@ app.get('/conversations/:id', authenticate, async (req: Request, res: Response) 
       },
     })
 
+    app.delete('/messages/:messageId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const messageId = String(req.params.messageId)
+
+    const message = await prisma.message.findUnique({
+      where: {
+        id: messageId,
+      },
+    })
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found',
+      })
+    }
+
+    if (message.senderId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own messages',
+      })
+    }
+
+    await prisma.message.delete({
+      where: {
+        id: messageId,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Message deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete message',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
     if (!participant) {
       return res.status(403).json({
         success: false,
