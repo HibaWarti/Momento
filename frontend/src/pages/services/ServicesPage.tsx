@@ -1,11 +1,56 @@
+import { useState, useEffect } from 'react'
 import { Search, SlidersHorizontal } from 'lucide-react'
 import { ServiceCard } from '../../components/services/ServiceCard'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { mockServices } from '../../data/mockServices'
+import { getServices } from '../../api/providerApi'
+import type { Service } from '../../types/provider'
 
 export function ServicesPage() {
+  const [services, setServices] = useState<Service[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadServices = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const response = await getServices()
+      setServices(response.services)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load services')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadServices()
+  }, [])
+
+  if (isLoading) {
+    return (
+      <main className="mx-auto flex min-h-[calc(100vh-74px)] items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-purple-200 border-t-purple-500"></div>
+          <p className="mt-4 text-slate-600">Loading services...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (error) {
+    return (
+      <main className="mx-auto flex min-h-[calc(100vh-74px)] items-center justify-center">
+        <Card className="max-w-md p-6 text-center">
+          <p className="text-lg text-red-600">{error}</p>
+          <Button className="mt-4" onClick={loadServices}>Try again</Button>
+        </Card>
+      </main>
+    )
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -50,11 +95,17 @@ export function ServicesPage() {
         </div>
       </Card>
 
-      <div className="mt-8 grid gap-6 md:grid-cols-3">
-        {mockServices.map((service) => (
-          <ServiceCard key={service.id} service={service} />
-        ))}
-      </div>
+      {services.length === 0 ? (
+        <Card className="mt-8 p-10 text-center">
+          <p className="text-lg text-slate-600">No services available yet. Check back later!</p>
+        </Card>
+      ) : (
+        <div className="mt-8 grid gap-6 md:grid-cols-3">
+          {services.map((service) => (
+            <ServiceCard key={service.id} service={service} />
+          ))}
+        </div>
+      )}
     </main>
   )
 }
