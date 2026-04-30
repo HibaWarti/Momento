@@ -302,6 +302,132 @@ app.get('/conversations', authenticate, async (_req: Request, res: Response) => 
   }
 })
 
+app.get('/conversations/:id/messages', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const conversationId = String(req.params.id)
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId: currentUser.id,
+        },
+      },
+    })
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to access this conversation',
+      })
+    }
+
+    const messages = await prisma.message.findMany({
+      where: {
+        conversationId,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Conversation messages retrieved successfully',
+      messages,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve conversation messages',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.post('/conversations/:id/messages', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const conversationId = String(req.params.id)
+    const { content } = req.body
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message content is required',
+      })
+    }
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId: currentUser.id,
+        },
+      },
+    })
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to send messages in this conversation',
+      })
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        conversationId,
+        senderId: currentUser.id,
+        content: String(content).trim(),
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            profilePicturePath: true,
+          },
+        },
+      },
+    })
+
+    await prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        updatedAt: new Date(),
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Message sent successfully',
+      chatMessage: message,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send message',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/conversations/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
