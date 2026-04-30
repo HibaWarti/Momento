@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import { prisma } from './prisma'
 import { authenticate } from './middleware/auth.middleware'
+import { profileUpload } from './utils/upload'
 
 dotenv.config()
 
@@ -496,7 +497,62 @@ app.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
+app.patch('/profile/me/picture', authenticate, (req: Request, res: Response) => {
+  profileUpload.single('profilePicture')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err instanceof Error ? err.message : 'File upload failed',
+      })
+    }
 
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Profile picture is required',
+      })
+    }
+
+    try {
+      const currentUser = res.locals.user as { id: string }
+      const profilePicturePath = `/uploads/profiles/${req.file.filename}`
+
+      const updatedUser = await prisma.user.update({
+        where: {
+          id: currentUser.id,
+        },
+        data: {
+          profilePicturePath,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+          email: true,
+          profilePicturePath: true,
+          bio: true,
+          role: true,
+          accountStatus: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+
+      return res.status(200).json({
+        success: true,
+        message: 'Profile picture updated successfully',
+        user: updatedUser,
+      })
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update profile picture',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  })
+})
 
 app.listen(PORT, () => {
   console.log(`User Service running on http://localhost:${PORT}`)
