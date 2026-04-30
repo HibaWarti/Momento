@@ -1265,6 +1265,131 @@ app.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
+app.post('/services/:id/images', authenticate, (req: Request, res: Response) => {
+  serviceImageUpload.array('images', 5)(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err instanceof Error ? err.message : 'File upload failed',
+      })
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one image is required',
+      })
+    }
+
+    try {
+      const currentUser = res.locals.user as { id: string }
+      const serviceId = String(req.params.id)
+
+      const service = await prisma.service.findUnique({
+        where: {
+          id: serviceId,
+        },
+        include: {
+          providerProfile: {
+            select: {
+              userId: true,
+            },
+          },
+        },
+      })
+
+      if (!service || service.status === 'DELETED') {
+        return res.status(404).json({
+          success: false,
+          message: 'Service not found',
+        })
+      }
+
+      if (service.providerProfile.userId !== currentUser.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only upload images to your own services',
+        })
+      }
+
+      const imageFiles = req.files as Express.Multer.File[]
+      const serviceImagesData = imageFiles.map((file) => ({
+        imagePath: `/uploads/services/${file.filename}`,
+        serviceId,
+      }))
+
+      const createdImages = await prisma.serviceImage.createManyAndReturn({
+        data: serviceImagesData,
+      })
+
+      return res.status(201).json({
+        success: true,
+        message: 'Service images uploaded successfully',
+        images: createdImages,
+      })
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload service images',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  })
+})
+
+app.delete('/services/:id/images/:imageId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const serviceId = String(req.params.id)
+    const imageId = String(req.params.imageId)
+
+    const service = await prisma.service.findUnique({
+      where: {
+        id: serviceId,
+      },
+      include: {
+        providerProfile: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    })
+
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found',
+      })
+    }
+
+    if (service.providerProfile.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete images from your own services',
+      })
+    }
+
+    await prisma.serviceImage.delete({
+      where: {
+        id: imageId,
+        serviceId,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Service image deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete service image',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Provider Service running on http://localhost:${PORT}`)
 })
