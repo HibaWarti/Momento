@@ -12,6 +12,7 @@ export const paths = {
   profile: '/profile',
   notifications: '/notifications',
   admin: '/admin',
+  adminUsers: '/admin/users',
   adminProviderRequests: '/admin/provider-requests',
   adminReports: '/admin/reports',
 }
