@@ -58,6 +58,255 @@ app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
   })
 })
 
+app.post('/internal', async (req: Request, res: Response) => {
+  try {
+    const internalSecret = req.headers['x-internal-secret']
+    const expectedSecret = process.env.INTERNAL_API_SECRET
+
+    if (!internalSecret || internalSecret !== expectedSecret) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden',
+      })
+    }
+
+    const { userId, type, title, message } = req.body
+
+    if (!userId || !type || !title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required',
+      })
+    }
+
+    const validTypes = [
+      'LIKE',
+      'COMMENT',
+      'FOLLOW',
+      'PROVIDER_REQUEST_APPROVED',
+      'PROVIDER_REQUEST_REJECTED',
+      'REPORT_STATUS',
+      'SYSTEM',
+    ]
+
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid notification type',
+      })
+    }
+
+    const userExists = await prisma.user.findUnique({
+      where: {
+        id: String(userId),
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!userExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      })
+    }
+
+    const notification = await prisma.notification.create({
+      data: {
+        userId: String(userId),
+        type: type as any,
+        title: String(title).trim(),
+        message: String(message).trim(),
+        isRead: false,
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Notification created successfully',
+      notification,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create notification',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/unread-count', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+
+    const unreadCount = await prisma.notification.count({
+      where: {
+        userId: currentUser.id,
+        isRead: false,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      unreadCount,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get unread count',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/read-all', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+
+    const updatedCount = await prisma.notification.updateMany({
+      where: {
+        userId: currentUser.id,
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'All notifications marked as read',
+      updatedCount: updatedCount.count,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to mark all as read',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+
+    const notifications = await prisma.notification.findMany({
+      where: {
+        userId: currentUser.id,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Notifications retrieved successfully',
+      notifications,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get notifications',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const id = String(req.params.id)
+
+    const notification = await prisma.notification.findUnique({
+      where: {
+        id,
+      },
+    })
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found',
+      })
+    }
+
+    if (notification.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to mark this notification as read',
+      })
+    }
+
+    const updatedNotification = await prisma.notification.update({
+      where: {
+        id,
+      },
+      data: {
+        isRead: true,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Notification marked as read successfully',
+      notification: updatedNotification,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to mark notification as read',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.delete('/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const id = String(req.params.id)
+
+    const notification = await prisma.notification.findUnique({
+      where: {
+        id,
+      },
+    })
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found',
+      })
+    }
+
+    if (notification.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to delete this notification',
+      })
+    }
+
+    await prisma.notification.delete({
+      where: {
+        id,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Notification deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete notification',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Notification Service running on http://localhost:${PORT}`)
 })
