@@ -95,6 +95,40 @@ enum LogAction {
   SERVICE_DELETED
 }
 
+model Conversation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             String   @id @default(uuid())
+  conversationId String
+  userId         String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
 model User {
   id                 String        @id @default(uuid())
   firstName          String
@@ -124,8 +158,10 @@ model User {
   logs               Log[]
   reviews            Review[]
 
-  following Follow[] @relation("UserFollowing")
-  followers Follow[] @relation("UserFollowers")
+  following                Follow[]                  @relation("UserFollowing")
+  followers                Follow[]                  @relation("UserFollowers")
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
 }
 
 model Post {
@@ -240,8 +276,8 @@ model Service {
 
   providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
   images          ServiceImage[]
-  reviews Review[]
-  reports Report[]
+  reviews         Review[]
+  reports         Report[]
 }
 
 model ServiceImage {
@@ -266,11 +302,11 @@ model Report {
   reviewedAt     DateTime?
   reviewedById   String?
 
-  reporter     User  @relation("ReportCreator", fields: [reporterId], references: [id], onDelete: Cascade)
-  reportedUser User? @relation("ReportedUser", fields: [reportedUserId], references: [id])
-  post         Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter     User     @relation("ReportCreator", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User?    @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  post         Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   service      Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  reviewedBy   User? @relation("ReportReviewer", fields: [reviewedById], references: [id])
+  reviewedBy   User?    @relation("ReportReviewer", fields: [reviewedById], references: [id])
 }
 
 model Notification {
