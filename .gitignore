@@ -143,3 +143,15 @@ vite.config.ts.timestamp-*
 .vite/
 
 inspiration/
+
+# Uploads
+uploads/**
+!uploads/
+!uploads/profiles/
+!uploads/posts/
+!uploads/cin/
+!uploads/services/
+!uploads/profiles/.gitkeep
+!uploads/posts/.gitkeep
+!uploads/cin/.gitkeep
+!uploads/services/.gitkeep

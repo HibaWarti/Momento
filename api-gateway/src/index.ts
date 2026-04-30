@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import { createProxyMiddleware } from 'http-proxy-middleware'
+import path from 'path'
 
 dotenv.config()
 
@@ -26,6 +27,8 @@ app.use(
   }),
 )
 app.use(morgan('dev'))
+
+app.use('/uploads', express.static(path.join(__dirname, '../../uploads')))
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).json({
