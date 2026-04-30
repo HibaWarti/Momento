@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
@@ -10,12 +10,19 @@ import { paths } from '../../routes/paths'
 export function LoginPage() {
   const navigate = useNavigate()
   const login = useAuthStore((state) => state.login)
-  const isLoading = useAuthStore((state) => state.isLoading)
+  const isAuthLoading = useAuthStore((state) => state.isAuthLoading)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const error = useAuthStore((state) => state.error)
   const clearError = useAuthStore((state) => state.clearError)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(paths.feed)
+    }
+  }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,8 +83,8 @@ export function LoginPage() {
               </button>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
+            <Button type="submit" className="w-full" disabled={isAuthLoading}>
+              {isAuthLoading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
 

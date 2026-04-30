@@ -8,6 +8,7 @@ type AuthStore = {
   token: string | null
   isAuthenticated: boolean
   isLoading: boolean
+  isAuthLoading: boolean
   error: string | null
   login: (email: string, password: string) => Promise<void>
   register: (payload: RegisterPayload) => Promise<void>
@@ -21,22 +22,23 @@ export const useAuthStore = create<AuthStore>((set) => ({
   token: null,
   isAuthenticated: false,
   isLoading: true,
+  isAuthLoading: false,
   error: null,
 
   login: async (email: string, password: string) => {
     try {
-      set({ isLoading: true, error: null })
+      set({ isAuthLoading: true, error: null })
       const response = await loginUser({ email, password })
       setStoredToken(response.token)
       set({
         user: response.user,
         token: response.token,
         isAuthenticated: true,
-        isLoading: false,
+        isAuthLoading: false,
       })
     } catch (error) {
       set({
-        isLoading: false,
+        isAuthLoading: false,
         error: error instanceof Error ? error.message : 'Login failed',
       })
       throw error
@@ -45,18 +47,18 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   register: async (payload: RegisterPayload) => {
     try {
-      set({ isLoading: true, error: null })
+      set({ isAuthLoading: true, error: null })
       const response = await registerUser(payload)
       setStoredToken(response.token)
       set({
         user: response.user,
         token: response.token,
         isAuthenticated: true,
-        isLoading: false,
+        isAuthLoading: false,
       })
     } catch (error) {
       set({
-        isLoading: false,
+        isAuthLoading: false,
         error: error instanceof Error ? error.message : 'Registration failed',
       })
       throw error
@@ -70,6 +72,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      isAuthLoading: false,
       error: null,
     })
   },

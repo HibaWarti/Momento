@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
@@ -10,7 +10,8 @@ import { paths } from '../../routes/paths'
 export function RegisterPage() {
   const navigate = useNavigate()
   const register = useAuthStore((state) => state.register)
-  const isLoading = useAuthStore((state) => state.isLoading)
+  const isAuthLoading = useAuthStore((state) => state.isAuthLoading)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const error = useAuthStore((state) => state.error)
   const clearError = useAuthStore((state) => state.clearError)
 
@@ -19,6 +20,12 @@ export function RegisterPage() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(paths.feed)
+    }
+  }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -96,8 +103,8 @@ export function RegisterPage() {
             </div>
 
             <div className="md:col-span-2">
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Creating account...' : 'Create account'}
+              <Button type="submit" className="w-full" disabled={isAuthLoading}>
+                {isAuthLoading ? 'Creating account...' : 'Create account'}
               </Button>
             </div>
           </form>
