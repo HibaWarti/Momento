@@ -1,8 +1,10 @@
 import { Search, Sparkles, TrendingUp, Users } from 'lucide-react'
+import { useState } from 'react'
 import { PostCard } from '../../components/posts/PostCard'
 import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { mockPosts } from '../../data/mockPosts'
+import { usePosts } from '../../hooks/usePosts'
 
 const suggestions = [
   'Wedding photography',
@@ -12,6 +14,59 @@ const suggestions = [
 ]
 
 export function FeedPage() {
+  const { posts, isLoading, error, loadPosts, createNewPost } = usePosts()
+  const [newPostContent, setNewPostContent] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+
+  const handleCreatePost = async () => {
+    if (!newPostContent.trim()) return
+    try {
+      setIsCreating(true)
+      await createNewPost(newPostContent.trim())
+      setNewPostContent('')
+      setShowCreateForm(false)
+    } catch {
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleReact = async (postId: string) => {
+    // TODO: Implement with addOrUpdateReaction
+    await loadPosts()
+  }
+
+  const handleReport = (postId: string) => {
+    const reason = prompt('Reason for reporting this post:')
+    if (reason) {
+      // TODO: Implement with reportPost
+      alert('Post reported successfully!')
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <main className="mx-auto flex min-h-[calc(100vh-74px)] items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-orange-200 border-t-orange-500"></div>
+          <p className="mt-4 text-slate-600">Loading posts...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (error) {
+    return (
+      <main className="mx-auto flex min-h-[calc(100vh-74px)] items-center justify-center">
+        <Card className="max-w-md p-6 text-center">
+          <p className="text-lg text-red-600">{error}</p>
+          <Button className="mt-4" onClick={loadPosts}>Try again</Button>
+        </Card>
+      </main>
+    )
+  }
+
   return (
     <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[220px_1fr_280px] lg:px-8">
       <aside className="hidden lg:block">
@@ -50,16 +105,47 @@ export function FeedPage() {
             </p>
           </div>
 
-          <button className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-600">
+          <Button onClick={() => setShowCreateForm(!showCreateForm)}>
             Create post
-          </button>
+          </Button>
         </div>
 
-        <div className="space-y-6">
-          {mockPosts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-        </div>
+        {showCreateForm && (
+          <Card className="mb-6 p-5">
+            <textarea
+              className="mb-4 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+              placeholder="What's on your mind?"
+              rows={3}
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value)}
+            />
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setShowCreateForm(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreatePost} disabled={isCreating || !newPostContent.trim()}>
+                {isCreating ? 'Posting...' : 'Post'}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {posts.length === 0 ? (
+          <Card className="p-10 text-center">
+            <p className="text-lg text-slate-600">No posts yet. Be the first to share a memory!</p>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                onReact={handleReact}
+                onReport={handleReport}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <aside className="hidden lg:block">
