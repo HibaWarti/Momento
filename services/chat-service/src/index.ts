@@ -428,6 +428,54 @@ app.post('/conversations/:id/messages', authenticate, async (req: Request, res: 
   }
 })
 
+app.patch('/conversations/:id/read', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const conversationId = String(req.params.id)
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId: currentUser.id,
+        },
+      },
+    })
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to access this conversation',
+      })
+    }
+
+    const result = await prisma.message.updateMany({
+      where: {
+        conversationId,
+        senderId: {
+          not: currentUser.id,
+        },
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Conversation messages marked as read successfully',
+      updatedCount: result.count,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to mark conversation messages as read',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.get('/conversations/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
