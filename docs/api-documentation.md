@@ -100,6 +100,60 @@ Base path:
 
 ---
 
+## Phase 8 — Upload and Media APIs
+
+### User Service
+
+Base path:
+
+/api/users
+
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| PATCH | /profile/me/picture | Upload/update current user profile picture | Yes |
+
+### Post Service
+
+Base path:
+
+/api/posts
+
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| POST | /:id/images | Upload images for a post | Yes |
+| DELETE | /:id/images/:imageId | Delete a post image | Yes |
+
+### Provider Service
+
+Base path:
+
+/api/providers
+
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| POST | /requests/cin-picture | Upload CIN picture for provider request | Yes |
+| POST | /services/:id/images | Upload images for a service | Yes |
+| DELETE | /services/:id/images/:imageId | Delete a service image | Yes |
+
+### Static Uploads
+
+Base path:
+
+/uploads
+
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| GET | /profiles/:filename | View uploaded profile picture | No |
+| GET | /posts/:filename | View uploaded post image | No |
+| GET | /cin/:filename | View uploaded CIN picture locally | No |
+| GET | /services/:filename | View uploaded service image | No |
+
+Important note:
+Local uploads are used for development.
+Cloudinary or another cloud storage service should be used later for production deployment.
+
+---
+
 ## Phase 7 — Admin and Moderation APIs
 
 Base path:
