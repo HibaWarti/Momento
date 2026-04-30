@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import { prisma } from './prisma'
 import { authenticate } from './middleware/auth.middleware'
+import { cinUpload, serviceImageUpload } from './utils/upload'
 
 dotenv.config()
 
@@ -55,6 +56,40 @@ app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
     success: true,
     message: 'Provider Service authentication is working',
     user: res.locals.user,
+  })
+})
+
+app.post('/requests/cin-picture', authenticate, (req: Request, res: Response) => {
+  cinUpload.single('cinPicture')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err instanceof Error ? err.message : 'File upload failed',
+      })
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'CIN picture is required',
+      })
+    }
+
+    try {
+      const cinPicturePath = `/uploads/cin/${req.file.filename}`
+
+      return res.status(200).json({
+        success: true,
+        message: 'CIN picture uploaded successfully',
+        cinPicturePath,
+      })
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload CIN picture',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
   })
 })
 
