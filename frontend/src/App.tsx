@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
 import { PublicLayout } from './components/layout/PublicLayout'
 import { HomePage } from './pages/public/HomePage'
 import { ExplorePage } from './pages/public/ExplorePage'
@@ -17,8 +18,27 @@ import { AdminProviderRequestsPage } from './pages/admin/AdminProviderRequestsPa
 import { AdminReportsPage } from './pages/admin/AdminReportsPage'
 import { NotFoundPage } from './pages/public/NotFoundPage'
 import { paths } from './routes/paths'
+import { useAuthStore } from './store/authStore'
 
 function App() {
+  const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser)
+  const isLoading = useAuthStore((state) => state.isLoading)
+
+  useEffect(() => {
+    loadCurrentUser()
+  }, [loadCurrentUser])
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-orange-200 border-t-orange-500"></div>
+          <p className="mt-4 text-slate-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <BrowserRouter>
       <Routes>
