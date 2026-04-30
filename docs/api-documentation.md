@@ -193,4 +193,20 @@ Base path:
 
 /api/chats
 
-To be added after Phase 10.
+| Method | Route | Description | Auth Required |
+|---|---|---|---|
+| GET | /health | Check Chat Service status | No |
+| GET | /db-health | Check Chat Service database connection | No |
+| GET | /auth-check | Check Chat Service authentication middleware | Yes |
+| POST | /conversations | Create or get conversation | Yes |
+| GET | /conversations | Get current user's conversations | Yes |
+| GET | /conversations/:id | Get conversation details | Yes |
+| GET | /conversations/:id/messages | Get messages in a conversation | Yes |
+| POST | /conversations/:id/messages | Send message | Yes |
+| PATCH | /conversations/:id/read | Mark conversation messages as read | Yes |
+| DELETE | /messages/:messageId | Delete own message | Yes |
+
+Important note:
+
+Chat is implemented with normal HTTP requests in this version.  
+Real-time chat with WebSocket or Socket.IO can be added later as a future improvement.

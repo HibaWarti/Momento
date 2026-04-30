@@ -73,6 +73,9 @@ npm install
 cd ../notification-service  
 npm install
 
+cd ../chat-service  
+npm install
+
 ## 4. Environment Variables
 
 Each backend service has a `.env.example` file.
@@ -203,6 +206,8 @@ curl.exe http://localhost:3005/health
 
 curl.exe http://localhost:3006/health
 
+curl.exe http://localhost:3007/health
+
 ### Through API Gateway
 
 curl.exe http://localhost:3000/api/auth/health
@@ -216,6 +221,9 @@ curl.exe http://localhost:3000/api/providers/health
 curl.exe http://localhost:3000/api/admin/health
 
 curl.exe http://localhost:3000/api/notifications/health
+
+curl.exe http://localhost:3000/api/chats/health
+
 
 ## 10. Notes
 
