@@ -1,15 +1,13 @@
-import { Bell, CheckCircle2, Heart, MessageCircle, UserPlus } from 'lucide-react'
+import { Bell, CheckCircle2, Heart, MessageCircle, Trash2, UserPlus } from 'lucide-react'
 import { Card } from '../ui/Card'
+import { Button } from '../ui/Button'
+import type { Notification } from '../../types/notification'
 
 type NotificationItemProps = {
-  notification: {
-    id: string
-    type: string
-    title: string
-    message: string
-    timeAgo: string
-    isRead: boolean
-  }
+  notification: Notification
+  timeLabel: string
+  onMarkAsRead?: (id: string) => void
+  onDelete?: (id: string) => void
 }
 
 const iconMap = {
@@ -22,7 +20,12 @@ const iconMap = {
   SYSTEM: Bell,
 }
 
-export function NotificationItem({ notification }: NotificationItemProps) {
+export function NotificationItem({
+  notification,
+  timeLabel,
+  onMarkAsRead,
+  onDelete,
+}: NotificationItemProps) {
   const Icon = iconMap[notification.type as keyof typeof iconMap] || Bell
 
   return (
@@ -51,15 +54,34 @@ export function NotificationItem({ notification }: NotificationItemProps) {
           </div>
 
           <span className="text-xs font-medium text-slate-400">
-            {notification.timeAgo}
+            {timeLabel}
           </span>
         </div>
 
-        {!notification.isRead && (
-          <span className="mt-3 inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-            New
-          </span>
-        )}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {!notification.isRead ? (
+            <Button
+              variant="ghost"
+              className="px-0 py-0 text-xs text-orange-700 hover:bg-transparent"
+              onClick={() => onMarkAsRead?.(notification.id)}
+            >
+              Mark as read
+            </Button>
+          ) : (
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              Read
+            </span>
+          )}
+
+          <Button
+            variant="ghost"
+            className="px-0 py-0 text-xs text-slate-500 hover:bg-transparent"
+            onClick={() => onDelete?.(notification.id)}
+          >
+            <Trash2 size={14} className="mr-1 inline" />
+            Delete
+          </Button>
+        </div>
       </div>
     </Card>
   )

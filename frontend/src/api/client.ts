@@ -3,6 +3,14 @@ const TOKEN_KEY = 'momento_token'
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
+export const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin
+  } catch {
+    return 'http://localhost:3000'
+  }
+})()
+
 export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY)
 }
@@ -13,6 +21,18 @@ export function setStoredToken(token: string) {
 
 export function clearStoredToken() {
   localStorage.removeItem(TOKEN_KEY)
+}
+
+export function getAssetUrl(path?: string | null) {
+  if (!path) {
+    return null
+  }
+
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+
+  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`
 }
 
 type ApiRequestOptions = {
