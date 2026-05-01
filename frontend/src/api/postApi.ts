@@ -1,7 +1,6 @@
 import { apiRequest } from './client'
 import type {
   CommentsResponse,
-  Post,
   PostResponse,
   PostsResponse,
   ReactionType,

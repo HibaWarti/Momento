@@ -1,6 +1,6 @@
 import type { AuthUser } from './auth'
 import type { Post } from './post'
-import type { ProviderRequest, Service, ServiceReview } from './provider'
+import type { Service } from './provider'
 
 export type ReportStatus = 'PENDING' | 'REVIEWING' | 'RESOLVED' | 'REJECTED'
 

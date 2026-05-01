@@ -1,4 +1,4 @@
-import { Camera, Edit3, MapPin, Settings } from 'lucide-react'
+import { Camera, Edit3, Settings } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { PostCard } from '../../components/posts/PostCard'
@@ -204,21 +204,21 @@ export function ProfilePage() {
           <div className="mt-6 grid max-w-xl grid-cols-3 gap-4">
             <div className="rounded-2xl bg-orange-50 p-4 text-center">
               <p className="text-2xl font-bold text-slate-950">
-                {activeProfile._count?.posts ?? posts.length}
+                {posts.length}
               </p>
               <p className="text-sm text-slate-500">Posts</p>
             </div>
 
             <div className="rounded-2xl bg-violet-50 p-4 text-center">
               <p className="text-2xl font-bold text-slate-950">
-                {activeProfile._count?.followers ?? followers.length}
+                {followers.length}
               </p>
               <p className="text-sm text-slate-500">Followers</p>
             </div>
 
             <div className="rounded-2xl bg-pink-50 p-4 text-center">
               <p className="text-2xl font-bold text-slate-950">
-                {activeProfile._count?.following ?? following.length}
+                {following.length}
               </p>
               <p className="text-sm text-slate-500">Following</p>
             </div>
