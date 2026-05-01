@@ -4,7 +4,15 @@ import { PostCard } from '../../components/posts/PostCard'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import {
+  addOrUpdateReaction,
+  addPostComment,
+  deletePost,
+  reportPost,
+  updatePost,
+} from '../../api/postApi'
 import { usePosts } from '../../hooks/usePosts'
+import { useAuthStore } from '../../store/authStore'
 
 const suggestions = [
   'Wedding photography',
@@ -14,7 +22,8 @@ const suggestions = [
 ]
 
 export function FeedPage() {
-  const { posts, isLoading, error, loadPosts, createNewPost } = usePosts()
+  const user = useAuthStore((state) => state.user)
+  const { posts, isLoading, error, loadPosts, createNewPost, removePostFromList } = usePosts()
   const [newPostContent, setNewPostContent] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -33,15 +42,65 @@ export function FeedPage() {
   }
 
   const handleReact = async (postId: string) => {
-    // TODO: Implement with addOrUpdateReaction
-    await loadPosts()
+    try {
+      await addOrUpdateReaction(postId, 'LIKE')
+      await loadPosts()
+    } catch {
+    }
   }
 
-  const handleReport = (postId: string) => {
+  const handleComment = async (postId: string) => {
+    const content = prompt('Write your comment')
+    if (!content?.trim()) {
+      return
+    }
+
+    try {
+      await addPostComment(postId, content.trim())
+      await loadPosts()
+    } catch {
+    }
+  }
+
+  const handleEdit = async (postId: string) => {
+    const post = posts.find((item) => item.id === postId)
+    const content = prompt('Update your post', post?.content ?? '')
+    if (!content?.trim()) {
+      return
+    }
+
+    try {
+      await updatePost(postId, content.trim())
+      await loadPosts()
+    } catch {
+    }
+  }
+
+  const handleDelete = async (postId: string) => {
+    const confirmed = window.confirm('Delete this post?')
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await deletePost(postId)
+      removePostFromList(postId)
+    } catch {
+    }
+  }
+
+  const handleReport = async (postId: string) => {
     const reason = prompt('Reason for reporting this post:')
-    if (reason) {
-      // TODO: Implement with reportPost
+    if (!reason?.trim()) {
+      return
+    }
+
+    const description = prompt('Additional details (optional)') || undefined
+
+    try {
+      await reportPost(postId, reason.trim(), description)
       alert('Post reported successfully!')
+    } catch {
     }
   }
 
@@ -140,8 +199,12 @@ export function FeedPage() {
               <PostCard
                 key={post.id}
                 post={post}
+                currentUserId={user?.id}
                 onReact={handleReact}
+                onComment={handleComment}
                 onReport={handleReport}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
               />
             ))}
           </div>

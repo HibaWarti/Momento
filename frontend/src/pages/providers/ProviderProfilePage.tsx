@@ -1,20 +1,25 @@
 import { MapPin, MessageCircle, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ServiceCard } from '../../components/services/ServiceCard'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import { createOrGetConversation } from '../../api/chatApi'
 import { getProviderById } from '../../api/providerApi'
 import { getAssetUrl } from '../../api/client'
 import { paths } from '../../routes/paths'
+import { useAuthStore } from '../../store/authStore'
 import type { ProviderProfile } from '../../types/provider'
 
 export function ProviderProfilePage() {
+  const navigate = useNavigate()
   const { providerId } = useParams()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const [provider, setProvider] = useState<ProviderProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isStartingConversation, setIsStartingConversation] = useState(false)
 
   const providerServices = useMemo(() => provider?.services ?? [], [provider])
 
@@ -72,6 +77,29 @@ export function ProviderProfilePage() {
   const providerInitials = provider.professionalName.slice(0, 2).toUpperCase()
   const profilePictureUrl = getAssetUrl(provider.user?.profilePicturePath)
 
+  const handleContactProvider = async () => {
+    const participantId = provider.user?.id
+
+    if (!isAuthenticated) {
+      navigate(paths.login)
+      return
+    }
+
+    if (!participantId) {
+      return
+    }
+
+    try {
+      setIsStartingConversation(true)
+      const response = await createOrGetConversation(participantId)
+      navigate(`/chats/${response.conversation.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open conversation')
+    } finally {
+      setIsStartingConversation(false)
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <Card className="overflow-hidden p-0">
@@ -107,9 +135,12 @@ export function ProviderProfilePage() {
               </div>
             </div>
 
-            <Button disabled>
+            <Button
+              onClick={() => void handleContactProvider()}
+              disabled={isStartingConversation || !provider.user?.id}
+            >
               <MessageCircle className="mr-2 inline" size={16} />
-              Contact Provider
+              {isStartingConversation ? 'Opening...' : 'Contact Provider'}
             </Button>
           </div>
 

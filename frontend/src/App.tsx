@@ -13,6 +13,7 @@ import { ServiceDetailsPage } from './pages/services/ServiceDetailsPage'
 import { ProviderProfilePage } from './pages/providers/ProviderProfilePage'
 import { ProviderRequestPage } from './pages/providers/ProviderRequestPage'
 import { NotificationsPage } from './pages/notifications/NotificationsPage'
+import { ChatsPage } from './pages/chat/ChatsPage'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminUsersPage } from './pages/admin/AdminUsersPage'
 import { AdminProviderRequestsPage } from './pages/admin/AdminProviderRequestsPage'
@@ -59,6 +60,8 @@ function App() {
             <Route path={paths.feed} element={<FeedPage />} />
             <Route path={paths.profile} element={<ProfilePage />} />
             <Route path={paths.notifications} element={<NotificationsPage />} />
+            <Route path={paths.chats} element={<ChatsPage />} />
+            <Route path={paths.chatConversation} element={<ChatsPage />} />
             <Route path={paths.providerRequest} element={<ProviderRequestPage />} />
           </Route>
 

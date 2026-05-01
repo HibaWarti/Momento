@@ -75,6 +75,16 @@ export function Navbar() {
               >
                 Notifications
               </NavLink>
+              <NavLink
+                to={paths.chats}
+                className={({ isActive }) =>
+                  `text-sm font-medium transition ${
+                    isActive ? 'text-orange-600' : 'text-slate-600 hover:text-slate-950'
+                  }`
+                }
+              >
+                Messages
+              </NavLink>
               {user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' ? (
                 <NavLink
                   to={paths.admin}

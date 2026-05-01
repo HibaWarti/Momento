@@ -9,6 +9,7 @@ export const authenticatedNavigation = [
   { label: 'Feed', href: '/feed' },
   { label: 'Profile', href: '/profile' },
   { label: 'Notifications', href: '/notifications' },
+  { label: 'Messages', href: '/chats' },
   { label: 'Become Provider', href: '/provider-request' },
 ]
 

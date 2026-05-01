@@ -1,17 +1,30 @@
-import { Heart, MessageCircle, MoreHorizontal, Send, Flag } from 'lucide-react'
+import { Flag, Heart, MessageCircle, Pencil, Send, Trash2 } from 'lucide-react'
 import { Card } from '../ui/Card'
 import type { Post } from '../../types/post'
 
 type PostCardProps = {
   post: Post
+  currentUserId?: string
   onReact?: (postId: string) => void
+  onComment?: (postId: string) => void
   onReport?: (postId: string) => void
+  onEdit?: (postId: string) => void
+  onDelete?: (postId: string) => void
 }
 
-export function PostCard({ post, onReact, onReport }: PostCardProps) {
+export function PostCard({
+  post,
+  currentUserId,
+  onReact,
+  onComment,
+  onReport,
+  onEdit,
+  onDelete,
+}: PostCardProps) {
   const authorInitials = `${post.author.firstName[0]}${post.author.lastName[0]}`
   const reactionCount = post._count?.reactions || 0
   const commentCount = post._count?.comments || 0
+  const isOwnPost = post.authorId === currentUserId
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -39,6 +52,7 @@ export function PostCard({ post, onReact, onReport }: PostCardProps) {
         <button
           className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
           onClick={() => onReport?.(post.id)}
+          disabled={isOwnPost}
         >
           <Flag size={20} />
         </button>
@@ -73,7 +87,10 @@ export function PostCard({ post, onReact, onReport }: PostCardProps) {
             {reactionCount}
           </button>
 
-          <button className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-orange-600">
+          <button
+            className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-orange-600"
+            onClick={() => onComment?.(post.id)}
+          >
             <MessageCircle size={20} />
             {commentCount}
           </button>
@@ -82,6 +99,26 @@ export function PostCard({ post, onReact, onReport }: PostCardProps) {
             <Send size={20} />
             Share
           </button>
+
+          {isOwnPost ? (
+            <>
+              <button
+                className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-violet-600"
+                onClick={() => onEdit?.(post.id)}
+              >
+                <Pencil size={18} />
+                Edit
+              </button>
+
+              <button
+                className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-red-600"
+                onClick={() => onDelete?.(post.id)}
+              >
+                <Trash2 size={18} />
+                Delete
+              </button>
+            </>
+          ) : null}
         </div>
 
         <p className="hidden text-sm text-slate-400 sm:block">View discussion</p>

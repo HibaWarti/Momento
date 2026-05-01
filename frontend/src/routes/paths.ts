@@ -11,6 +11,8 @@ export const paths = {
   feed: '/feed',
   profile: '/profile',
   notifications: '/notifications',
+  chats: '/chats',
+  chatConversation: '/chats/:conversationId',
   admin: '/admin',
   adminUsers: '/admin/users',
   adminProviderRequests: '/admin/provider-requests',

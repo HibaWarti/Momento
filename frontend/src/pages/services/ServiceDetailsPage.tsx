@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, MapPin, MessageCircle, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '../../components/ui/Badge'
@@ -11,18 +11,22 @@ import {
   reportService,
   updateServiceReview,
 } from '../../api/providerApi'
+import { createOrGetConversation } from '../../api/chatApi'
 import { getAssetUrl } from '../../api/client'
 import { paths } from '../../routes/paths'
 import { useAuthStore } from '../../store/authStore'
 import type { Service, ServiceReview } from '../../types/provider'
 
 export function ServiceDetailsPage() {
+  const navigate = useNavigate()
   const { serviceId } = useParams()
   const user = useAuthStore((state) => state.user)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const [service, setService] = useState<Service | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isSavingReview, setIsSavingReview] = useState(false)
+  const [isStartingConversation, setIsStartingConversation] = useState(false)
 
   const currentUserReview = useMemo(
     () => service?.reviews?.find((review) => review.userId === user?.id) ?? null,
@@ -164,6 +168,29 @@ export function ServiceDetailsPage() {
       alert('Service reported successfully.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to report service')
+    }
+  }
+
+  const handleContactProvider = async () => {
+    const participantId = service?.providerProfile?.user?.id
+
+    if (!isAuthenticated) {
+      navigate(paths.login)
+      return
+    }
+
+    if (!participantId) {
+      return
+    }
+
+    try {
+      setIsStartingConversation(true)
+      const response = await createOrGetConversation(participantId)
+      navigate(`/chats/${response.conversation.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open conversation')
+    } finally {
+      setIsStartingConversation(false)
     }
   }
 
@@ -351,9 +378,13 @@ export function ServiceDetailsPage() {
               </div>
             </div>
 
-            <Button className="mt-6 w-full" disabled>
+            <Button
+              className="mt-6 w-full"
+              onClick={() => void handleContactProvider()}
+              disabled={isStartingConversation || !service.providerProfile?.user?.id}
+            >
               <MessageCircle className="mr-2 inline" size={16} />
-              Contact Provider
+              {isStartingConversation ? 'Opening...' : 'Contact Provider'}
             </Button>
 
             <Link to={providerProfilePath}>

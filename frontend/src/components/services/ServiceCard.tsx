@@ -1,8 +1,13 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { MapPin, Star } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { createOrGetConversation } from '../../api/chatApi'
+import { paths } from '../../routes/paths'
+import { useAuthStore } from '../../store/authStore'
 import type { Service } from '../../types/provider'
 
 type ServiceCardProps = {
@@ -10,7 +15,31 @@ type ServiceCardProps = {
 }
 
 export function ServiceCard({ service }: ServiceCardProps) {
+  const navigate = useNavigate()
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const [isStartingConversation, setIsStartingConversation] = useState(false)
   const reviewsCount = service._count?.reviews || 0
+
+  const handleContact = async () => {
+    const participantId = service.providerProfile?.user?.id
+
+    if (!isAuthenticated) {
+      navigate(paths.login)
+      return
+    }
+
+    if (!participantId) {
+      return
+    }
+
+    try {
+      setIsStartingConversation(true)
+      const response = await createOrGetConversation(participantId)
+      navigate(`/chats/${response.conversation.id}`)
+    } finally {
+      setIsStartingConversation(false)
+    }
+  }
 
   return (
     <Card className="overflow-hidden p-0 transition hover:-translate-y-1 hover:shadow-md">
@@ -48,7 +77,13 @@ export function ServiceCard({ service }: ServiceCardProps) {
             <Button className="w-full">View details</Button>
           </Link>
 
-          <Button variant="outline">Contact</Button>
+          <Button
+            variant="outline"
+            onClick={() => void handleContact()}
+            disabled={isStartingConversation || !service.providerProfile?.user?.id}
+          >
+            {isStartingConversation ? 'Opening...' : 'Contact'}
+          </Button>
         </div>
       </div>
     </Card>
