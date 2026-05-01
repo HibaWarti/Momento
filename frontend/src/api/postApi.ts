@@ -30,7 +30,7 @@ export function updatePost(id: string, content: string) {
 }
 
 export function deletePost(id: string) {
-  return apiRequest<PostResponse>(`/posts/${id}`, {
+  return apiRequest<{ success: boolean; message: string }>(`/posts/${id}`, {
     method: 'DELETE',
   })
 }
@@ -47,7 +47,7 @@ export function addPostComment(postId: string, content: string) {
 }
 
 export function deletePostComment(commentId: string) {
-  return apiRequest<void>(`/posts/comments/${commentId}`, {
+  return apiRequest<{ success: boolean; message: string }>(`/posts/comments/${commentId}`, {
     method: 'DELETE',
   })
 }
@@ -60,7 +60,7 @@ export function addOrUpdateReaction(postId: string, type: ReactionType) {
 }
 
 export function removeReaction(postId: string) {
-  return apiRequest<void>(`/posts/${postId}/reactions`, {
+  return apiRequest<{ success: boolean; message: string }>(`/posts/${postId}/reactions`, {
     method: 'DELETE',
   })
 }
@@ -70,4 +70,35 @@ export function reportPost(postId: string, reason: string, description?: string)
     method: 'POST',
     body: { reason, description },
   })
+}
+
+export function uploadPostImages(postId: string, files: File[]) {
+  const formData = new FormData()
+
+  files.forEach((file) => {
+    formData.append('images', file)
+  })
+
+  return apiRequest<{
+    success: boolean
+    message: string
+    images: Array<{
+      id: string
+      imagePath: string
+      postId: string
+      createdAt: string
+    }>
+  }>(`/posts/${postId}/images`, {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export function deletePostImage(postId: string, imageId: string) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/posts/${postId}/images/${imageId}`,
+    {
+      method: 'DELETE',
+    },
+  )
 }

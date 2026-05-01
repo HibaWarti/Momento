@@ -24,13 +24,13 @@ type UserResponse = {
 type ProviderRequestsResponse = {
   success: boolean
   message: string
-  requests: ProviderRequest[]
+  providerRequests: ProviderRequest[]
 }
 
 type ProviderRequestResponse = {
   success: boolean
   message: string
-  request: ProviderRequest
+  providerRequest: ProviderRequest
 }
 
 type ReportsResponse = {

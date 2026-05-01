@@ -39,7 +39,42 @@ type ReviewsResponse = {
 type ProviderRequestsResponse = {
   success: boolean
   message: string
-  requests: ProviderRequest[]
+  providerRequests: ProviderRequest[]
+}
+
+type ProviderRequestSubmissionResponse = {
+  success: boolean
+  message: string
+  providerRequest: ProviderRequest
+}
+
+type CinUploadResponse = {
+  success: boolean
+  message: string
+  cinPicturePath: string
+}
+
+type ProviderProfileResponse = {
+  success: boolean
+  message: string
+  providerProfile: ProviderProfile
+}
+
+type ReviewResponse = {
+  success: boolean
+  message: string
+  review: ServiceReview
+}
+
+type ServiceImagesResponse = {
+  success: boolean
+  message: string
+  images: Array<{
+    id: string
+    serviceId: string
+    imagePath: string
+    createdAt: string
+  }>
 }
 
 export function getProviders() {
@@ -48,6 +83,16 @@ export function getProviders() {
 
 export function getProviderById(id: string) {
   return apiRequest<ProviderResponse>(`/providers/${id}`, { auth: false })
+}
+
+export function uploadCinPicture(file: File) {
+  const formData = new FormData()
+  formData.append('cinPicture', file)
+
+  return apiRequest<CinUploadResponse>('/providers/requests/cin-picture', {
+    method: 'POST',
+    body: formData,
+  })
 }
 
 export function submitProviderRequest(payload: {
@@ -59,7 +104,7 @@ export function submitProviderRequest(payload: {
   cinPicturePath: string
   additionalInfo?: string
 }) {
-  return apiRequest<{ success: boolean; message: string; request: ProviderRequest }>(
+  return apiRequest<ProviderRequestSubmissionResponse>(
     '/providers/requests',
     {
       method: 'POST',
@@ -73,7 +118,7 @@ export function getMyProviderRequests() {
 }
 
 export function getMyProviderProfile() {
-  return apiRequest<ProviderResponse>('/providers/me/profile')
+  return apiRequest<ProviderProfileResponse>('/providers/me/profile')
 }
 
 export function updateMyProviderProfile(payload: Partial<{
@@ -82,7 +127,7 @@ export function updateMyProviderProfile(payload: Partial<{
   phone: string
   city: string
 }>) {
-  return apiRequest<ProviderResponse>('/providers/me/profile', {
+  return apiRequest<ProviderProfileResponse>('/providers/me/profile', {
     method: 'PATCH',
     body: payload,
   })
@@ -141,7 +186,7 @@ export function addServiceReview(serviceId: string, payload: {
   rating: number
   comment?: string
 }) {
-  return apiRequest<ServiceReview>(`/providers/services/${serviceId}/reviews`, {
+  return apiRequest<ReviewResponse>(`/providers/services/${serviceId}/reviews`, {
     method: 'POST',
     body: payload,
   })
@@ -151,7 +196,7 @@ export function updateServiceReview(reviewId: string, payload: Partial<{
   rating: number
   comment?: string
 }>) {
-  return apiRequest<ServiceReview>(`/providers/reviews/${reviewId}`, {
+  return apiRequest<ReviewResponse>(`/providers/reviews/${reviewId}`, {
     method: 'PATCH',
     body: payload,
   })
@@ -168,4 +213,26 @@ export function reportService(serviceId: string, reason: string, description?: s
     method: 'POST',
     body: { reason, description },
   })
+}
+
+export function uploadServiceImages(serviceId: string, files: File[]) {
+  const formData = new FormData()
+
+  files.forEach((file) => {
+    formData.append('images', file)
+  })
+
+  return apiRequest<ServiceImagesResponse>(`/providers/services/${serviceId}/images`, {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export function deleteServiceImage(serviceId: string, imageId: string) {
+  return apiRequest<{ success: boolean; message: string }>(
+    `/providers/services/${serviceId}/images/${imageId}`,
+    {
+      method: 'DELETE',
+    },
+  )
 }
