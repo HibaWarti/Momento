@@ -1,7 +1,7 @@
 import { apiRequest } from './client'
 import type { AdminStats, AdminReport, AdminLog } from '../types/admin'
-import type { AuthUser } from '../types/auth'
 import type { ProviderRequest } from '../types/provider'
+import type { AdminUser } from '../types/user'
 
 type StatsResponse = {
   success: boolean
@@ -12,13 +12,13 @@ type StatsResponse = {
 type UsersResponse = {
   success: boolean
   message: string
-  users: AuthUser[]
+  users: AdminUser[]
 }
 
 type UserResponse = {
   success: boolean
   message: string
-  user: AuthUser
+  user: AdminUser
 }
 
 type ProviderRequestsResponse = {

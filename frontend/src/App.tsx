@@ -14,6 +14,7 @@ import { ProviderProfilePage } from './pages/providers/ProviderProfilePage'
 import { ProviderRequestPage } from './pages/providers/ProviderRequestPage'
 import { NotificationsPage } from './pages/notifications/NotificationsPage'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
+import { AdminUsersPage } from './pages/admin/AdminUsersPage'
 import { AdminProviderRequestsPage } from './pages/admin/AdminProviderRequestsPage'
 import { AdminReportsPage } from './pages/admin/AdminReportsPage'
 import { NotFoundPage } from './pages/public/NotFoundPage'
@@ -63,6 +64,7 @@ function App() {
 
           <Route element={<AdminRoute />}>
             <Route path={paths.admin} element={<AdminDashboardPage />} />
+            <Route path={paths.adminUsers} element={<AdminUsersPage />} />
             <Route path={paths.adminProviderRequests} element={<AdminProviderRequestsPage />} />
             <Route path={paths.adminReports} element={<AdminReportsPage />} />
           </Route>
