@@ -99,6 +99,7 @@ app.use(
   createProxyMiddleware({
     target: NOTIFICATION_SERVICE_URL,
     changeOrigin: true,
+    ws: true,
     pathRewrite: {
       '^/api/notifications': '',
     },
@@ -110,6 +111,7 @@ app.use(
   createProxyMiddleware({
     target: CHAT_SERVICE_URL,
     changeOrigin: true,
+    ws: true,
     pathRewrite: {
       '^/api/chats': '',
     },

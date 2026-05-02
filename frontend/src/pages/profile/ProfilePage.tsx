@@ -1,6 +1,7 @@
-import { Camera, Edit3, Settings } from 'lucide-react'
+import { Camera, Calendar, Edit3, Mail, MessageSquare, Settings, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { PostCard } from '../../components/posts/PostCard'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -16,8 +17,11 @@ import {
   uploadProfilePicture,
 } from '../../api/userApi'
 import { useAuthStore } from '../../store/authStore'
+import { paths } from '../../routes/paths'
 import type { Post } from '../../types/post'
 import type { PublicUserProfile, UserSummary } from '../../types/user'
+
+type ProfileTab = 'posts' | 'followers' | 'following'
 
 export function ProfilePage() {
   const user = useAuthStore((state) => state.user)
@@ -26,6 +30,7 @@ export function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [followers, setFollowers] = useState<UserSummary[]>([])
   const [following, setFollowing] = useState<UserSummary[]>([])
+  const [activeTab, setActiveTab] = useState<ProfileTab>('posts')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingPicture, setIsUploadingPicture] = useState(false)
@@ -36,11 +41,12 @@ export function ProfilePage() {
   const [username, setUsername] = useState('')
   const [bio, setBio] = useState('')
 
-  if (!user) {
-    return null
-  }
-
   useEffect(() => {
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
+
     const loadProfileData = async () => {
       try {
         setIsLoading(true)
@@ -71,13 +77,24 @@ export function ProfilePage() {
     }
 
     void loadProfileData()
-  }, [user.id])
+  }, [user])
 
-  const profilePictureUrl = getAssetUrl(profile?.profilePicturePath)
-  const profileInitial = useMemo(
-    () => (profile?.firstName?.[0] || user.firstName[0]).toUpperCase(),
-    [profile?.firstName, user.firstName],
-  )
+  const activeProfile = profile ?? user
+  const profilePictureUrl = getAssetUrl(activeProfile?.profilePicturePath)
+  const profileInitial = useMemo(() => {
+    if (!activeProfile) return 'M'
+    return (activeProfile.firstName?.[0] || activeProfile.username?.[0] || 'M').toUpperCase()
+  }, [activeProfile])
+
+  const displayName = activeProfile
+    ? `${activeProfile.firstName} ${activeProfile.lastName}`.trim()
+    : 'Momento User'
+
+  const joinedDate = activeProfile?.createdAt
+    ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(
+        new Date(activeProfile.createdAt),
+      )
+    : 'Recently'
 
   const handleSaveProfile = async () => {
     try {
@@ -123,77 +140,119 @@ export function ProfilePage() {
     return (
       <main className="mx-auto flex min-h-[calc(100vh-74px)] items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-orange-200 border-t-orange-500"></div>
-          <p className="mt-4 text-slate-600">Loading your profile...</p>
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[var(--theme-border)] border-t-[var(--theme-primary)]"></div>
+          <p className="mt-4 text-[var(--theme-muted)]">Loading your profile...</p>
         </div>
       </main>
     )
   }
 
-  const activeProfile = profile ?? user
+  if (!activeProfile) {
+    return null
+  }
+
+  const tabCounts = {
+    posts: posts.length,
+    followers: followers.length,
+    following: following.length,
+  }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <Card className="overflow-hidden p-0">
-        <div className="h-44 bg-gradient-to-r from-orange-200 via-pink-200 to-violet-200" />
+        <div
+          className="relative h-48 md:h-64"
+          style={{
+            background: `linear-gradient(120deg, var(--theme-primary), var(--theme-secondary), var(--theme-accent))`,
+          }}
+        >
+          <div className="absolute inset-0 bg-black/10" />
+          <label className="absolute bottom-4 right-4 inline-flex">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => void handleProfilePictureChange(event)}
+              disabled={isUploadingPicture}
+            />
+            <span className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-black/45 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-black/60">
+              <Camera size={16} />
+              {isUploadingPicture ? 'Uploading...' : 'Cover style'}
+            </span>
+          </label>
+        </div>
 
-        <div className="px-6 pb-6">
+        <div className="px-5 pb-6 sm:px-6">
           {error && (
-            <div className="mt-6 rounded-2xl bg-red-50 p-4 text-sm text-red-700">
+            <div className="mt-5 rounded-lg border border-[var(--theme-error)]/30 bg-[var(--theme-error)]/10 p-4 text-sm text-[var(--theme-error)]">
               {error}
             </div>
           )}
 
-          <div className="-mt-14 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div className="-mt-16 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-              {profilePictureUrl ? (
-                <img
-                  src={profilePictureUrl}
-                  alt={activeProfile.firstName}
-                  className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-sm"
-                />
-              ) : (
-                <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-orange-500 text-2xl font-bold text-white shadow-sm">
-                  {profileInitial}
-                </div>
-              )}
-
-              <div className="pb-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-bold text-slate-950">
-                    {activeProfile.firstName} {activeProfile.lastName}
-                  </h1>
-                  <Badge variant="orange">{activeProfile.role}</Badge>
-                </div>
-
-                <p className="mt-1 text-slate-500">@{activeProfile.username}</p>
-
-                {activeProfile.bio && (
-                  <p className="mt-3 leading-7 text-slate-700">{activeProfile.bio}</p>
+              <div className="relative">
+                {profilePictureUrl ? (
+                  <img
+                    src={profilePictureUrl}
+                    alt={displayName}
+                    className="h-32 w-32 rounded-full border-4 border-[var(--theme-card)] object-cover shadow-sm"
+                  />
+                ) : (
+                  <div className="flex h-32 w-32 items-center justify-center rounded-full border-4 border-[var(--theme-card)] bg-[var(--theme-primary)] text-3xl font-bold text-white shadow-sm">
+                    {profileInitial}
+                  </div>
                 )}
+              </div>
+
+              <div className="pb-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-3xl font-bold text-[var(--theme-foreground)]">
+                    {displayName}
+                  </h1>
+                  <Badge variant="purple">{activeProfile.role}</Badge>
+                </div>
+
+                <p className="mt-1 text-[var(--theme-muted)]">@{activeProfile.username}</p>
+
+                {activeProfile.bio ? (
+                  <p className="mt-3 max-w-2xl leading-7 text-[var(--theme-foreground)]">
+                    {activeProfile.bio}
+                  </p>
+                ) : (
+                  <p className="mt-3 max-w-2xl leading-7 text-[var(--theme-muted)]">
+                    Add a short bio to tell people what kind of moments you love sharing.
+                  </p>
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-4 text-sm text-[var(--theme-muted)]">
+                  <span className="inline-flex items-center gap-2">
+                    <Calendar size={16} />
+                    Joined {joinedDate}
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <Users size={16} />
+                    Social profile
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <label className="inline-flex">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) => void handleProfilePictureChange(event)}
-                  disabled={isUploadingPicture}
-                />
-                <Button variant="outline" type="button">
-                  <Camera className="mr-2 inline" size={16} />
-                  {isUploadingPicture ? 'Uploading...' : 'Update picture'}
-                </Button>
-              </label>
-
               <Button variant="outline" type="button" disabled>
-                <Settings className="mr-2 inline" size={16} />
-                Backend later
+                <MessageSquare className="mr-2 inline" size={16} />
+                Message
               </Button>
-
+              <Button variant="outline" type="button" disabled>
+                <Mail className="mr-2 inline" size={16} />
+                Email
+              </Button>
+              <Link to={paths.settings}>
+                <Button variant="outline" type="button">
+                  <Settings className="mr-2 inline" size={16} />
+                  Settings
+                </Button>
+              </Link>
               <Button type="button" onClick={() => setIsEditing((current) => !current)}>
                 <Edit3 className="mr-2 inline" size={16} />
                 {isEditing ? 'Close editor' : 'Edit profile'}
@@ -201,64 +260,64 @@ export function ProfilePage() {
             </div>
           </div>
 
-          <div className="mt-6 grid max-w-xl grid-cols-3 gap-4">
-            <div className="rounded-2xl bg-orange-50 p-4 text-center">
-              <p className="text-2xl font-bold text-slate-950">
-                {posts.length}
-              </p>
-              <p className="text-sm text-slate-500">Posts</p>
-            </div>
-
-            <div className="rounded-2xl bg-violet-50 p-4 text-center">
-              <p className="text-2xl font-bold text-slate-950">
-                {followers.length}
-              </p>
-              <p className="text-sm text-slate-500">Followers</p>
-            </div>
-
-            <div className="rounded-2xl bg-pink-50 p-4 text-center">
-              <p className="text-2xl font-bold text-slate-950">
-                {following.length}
-              </p>
-              <p className="text-sm text-slate-500">Following</p>
-            </div>
+          <div className="mt-7 grid max-w-xl grid-cols-3 gap-3">
+            {([
+              ['Posts', posts.length, 'var(--theme-primary)'],
+              ['Followers', followers.length, 'var(--theme-secondary)'],
+              ['Following', following.length, 'var(--theme-accent)'],
+            ] as const).map(([label, value, color]) => (
+              <div
+                key={label}
+                className="rounded-lg border border-[var(--theme-border)] p-4 text-center"
+                style={{ backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}
+              >
+                <p className="text-2xl font-bold text-[var(--theme-foreground)]">{value}</p>
+                <p className="text-sm text-[var(--theme-muted)]">{label}</p>
+              </div>
+            ))}
           </div>
 
           {isEditing && (
-            <Card className="mt-6 bg-slate-50">
+            <div className="mt-6 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-background)] p-5">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">First name</span>
+                  <span className="text-sm font-medium text-[var(--theme-foreground)]">
+                    First name
+                  </span>
                   <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                    className="w-full rounded-lg border border-[var(--theme-border)] bg-[var(--theme-card)] px-4 py-3 text-sm text-[var(--theme-foreground)] outline-none focus:border-[var(--theme-primary)]"
                     value={firstName}
                     onChange={(event) => setFirstName(event.target.value)}
                   />
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Last name</span>
+                  <span className="text-sm font-medium text-[var(--theme-foreground)]">
+                    Last name
+                  </span>
                   <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                    className="w-full rounded-lg border border-[var(--theme-border)] bg-[var(--theme-card)] px-4 py-3 text-sm text-[var(--theme-foreground)] outline-none focus:border-[var(--theme-primary)]"
                     value={lastName}
                     onChange={(event) => setLastName(event.target.value)}
                   />
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Username</span>
+                  <span className="text-sm font-medium text-[var(--theme-foreground)]">
+                    Username
+                  </span>
                   <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                    className="w-full rounded-lg border border-[var(--theme-border)] bg-[var(--theme-card)] px-4 py-3 text-sm text-[var(--theme-foreground)] outline-none focus:border-[var(--theme-primary)]"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                   />
                 </label>
 
                 <label className="space-y-2 md:col-span-2">
-                  <span className="text-sm font-medium text-slate-700">Bio</span>
+                  <span className="text-sm font-medium text-[var(--theme-foreground)]">Bio</span>
                   <textarea
                     rows={4}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                    className="w-full resize-none rounded-lg border border-[var(--theme-border)] bg-[var(--theme-card)] px-4 py-3 text-sm text-[var(--theme-foreground)] outline-none focus:border-[var(--theme-primary)]"
                     value={bio}
                     onChange={(event) => setBio(event.target.value)}
                   />
@@ -273,56 +332,73 @@ export function ProfilePage() {
                   {isSaving ? 'Saving...' : 'Save profile'}
                 </Button>
               </div>
-            </Card>
+            </div>
           )}
         </div>
       </Card>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
-        <section>
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-950">Posts</h2>
-              <p className="text-sm text-slate-500">Memories shared by this user.</p>
-            </div>
-
-            <Button variant="outline" disabled>
-              <Camera className="mr-2 inline" size={16} />
-              Create from feed
-            </Button>
-          </div>
-
-          {posts.length === 0 ? (
-            <Card className="text-center">
-              <p className="text-slate-600">No public posts found for this profile yet.</p>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <aside className="space-y-4">
-          <Card>
-            <h2 className="font-bold text-slate-950">Following</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Profiles you currently follow.
-            </p>
-          </Card>
-
-          {(following.length > 0 ? following : followers).map((listUser) => (
-            <UserCard key={listUser.id} user={listUser} />
+      <div className="mt-6 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-card)]">
+        <div className="grid grid-cols-3">
+          {(['posts', 'followers', 'following'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`border-b-2 px-4 py-4 text-sm font-semibold capitalize transition ${
+                activeTab === tab
+                  ? 'border-[var(--theme-primary)] text-[var(--theme-primary)]'
+                  : 'border-transparent text-[var(--theme-muted)] hover:text-[var(--theme-foreground)]'
+              }`}
+            >
+              {tab} <span className="font-normal">({tabCounts[tab]})</span>
+            </button>
           ))}
+        </div>
+      </div>
 
-          {following.length === 0 && followers.length === 0 ? (
-            <Card>
-              <p className="text-sm text-slate-500">No followers or following users yet.</p>
-            </Card>
-          ) : null}
-        </aside>
+      <div className="mt-6">
+        {activeTab === 'posts' && (
+          <section>
+            {posts.length === 0 ? (
+              <Card className="p-10 text-center">
+                <p className="text-lg font-semibold text-[var(--theme-foreground)]">No posts yet</p>
+                <p className="mt-2 text-[var(--theme-muted)]">
+                  Shared memories from this profile will appear here.
+                </p>
+              </Card>
+            ) : (
+              <div className="mx-auto max-w-2xl space-y-5">
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} currentUserId={user?.id} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeTab === 'followers' && (
+          <section className="grid gap-4 md:grid-cols-2">
+            {followers.length === 0 ? (
+              <Card className="md:col-span-2">
+                <p className="text-center text-[var(--theme-muted)]">No followers yet.</p>
+              </Card>
+            ) : (
+              followers.map((listUser) => <UserCard key={listUser.id} user={listUser} />)
+            )}
+          </section>
+        )}
+
+        {activeTab === 'following' && (
+          <section className="grid gap-4 md:grid-cols-2">
+            {following.length === 0 ? (
+              <Card className="md:col-span-2">
+                <p className="text-center text-[var(--theme-muted)]">Not following anyone yet.</p>
+              </Card>
+            ) : (
+              following.map((listUser) => <UserCard key={listUser.id} user={listUser} />)
+            )}
+          </section>
+        )}
       </div>
     </main>
   )

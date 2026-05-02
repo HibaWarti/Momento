@@ -10,9 +10,25 @@ import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from '../../api/notificationApi'
+import { createNotificationSocket } from '../../api/realtime'
+import { useAuthStore } from '../../store/authStore'
 import type { Notification } from '../../types/notification'
 
+function upsertNotification(notifications: Notification[], notification: Notification) {
+  const exists = notifications.some((currentNotification) => currentNotification.id === notification.id)
+  const nextNotifications = exists
+    ? notifications.map((currentNotification) =>
+        currentNotification.id === notification.id ? notification : currentNotification,
+      )
+    : [notification, ...notifications]
+
+  return [...nextNotifications].sort(
+    (first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime(),
+  )
+}
+
 export function NotificationsPage() {
+  const token = useAuthStore((state) => state.token)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -37,6 +53,38 @@ export function NotificationsPage() {
   useEffect(() => {
     void loadNotifications()
   }, [])
+
+  useEffect(() => {
+    if (!token) {
+      return
+    }
+
+    const socket = createNotificationSocket({ token })
+
+    socket.on('notification:new', ({ notification }) => {
+      setNotifications((current) => upsertNotification(current, notification as Notification))
+    })
+
+    socket.on('notification:read', ({ notification }) => {
+      setNotifications((current) => upsertNotification(current, notification as Notification))
+    })
+
+    socket.on('notification:deleted', ({ notificationId }) => {
+      setNotifications((current) =>
+        current.filter((notification) => notification.id !== notificationId),
+      )
+    })
+
+    socket.on('notifications:read-all', () => {
+      setNotifications((current) =>
+        current.map((notification) => ({ ...notification, isRead: true })),
+      )
+    })
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [token])
 
   const handleMarkAsRead = async (id: string) => {
     try {

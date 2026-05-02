@@ -5,6 +5,7 @@ import { MapPin, Star } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { getAssetUrl } from '../../api/client'
 import { createOrGetConversation } from '../../api/chatApi'
 import { paths } from '../../routes/paths'
 import { useAuthStore } from '../../store/authStore'
@@ -43,7 +44,15 @@ export function ServiceCard({ service }: ServiceCardProps) {
 
   return (
     <Card className="overflow-hidden p-0 transition hover:-translate-y-1 hover:shadow-md">
-      <div className="h-44 bg-gradient-to-br from-orange-200 via-pink-200 to-violet-200" />
+      {service.images && service.images.length > 0 ? (
+        <img
+          src={getAssetUrl(service.images[0].imagePath || service.images[0].path) || ''}
+          alt={service.title}
+          className="h-44 w-full object-cover"
+        />
+      ) : (
+        <div className="h-44 bg-gradient-to-br from-orange-200 via-pink-200 to-violet-200" />
+      )}
 
       <div className="p-6">
         <div className="flex items-center justify-between gap-3">

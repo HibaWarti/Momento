@@ -8,11 +8,11 @@ type BadgeProps = {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  orange: 'bg-orange-100 text-orange-700',
-  purple: 'bg-violet-100 text-violet-700',
-  pink: 'bg-pink-100 text-pink-700',
-  green: 'bg-green-100 text-green-700',
-  slate: 'bg-slate-100 text-slate-700',
+  orange: 'theme-badge-primary',
+  purple: 'theme-badge-secondary',
+  pink: 'theme-badge-accent',
+  green: 'theme-badge-success',
+  slate: 'theme-badge-muted',
 }
 
 export function Badge({ children, variant = 'orange' }: BadgeProps) {

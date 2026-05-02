@@ -10,6 +10,7 @@ export const paths = {
   register: '/register',
   feed: '/feed',
   profile: '/profile',
+  settings: '/settings',
   notifications: '/notifications',
   chats: '/chats',
   chatConversation: '/chats/:conversationId',

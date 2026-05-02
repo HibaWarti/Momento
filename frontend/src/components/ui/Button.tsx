@@ -8,10 +8,11 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-orange-500 text-white hover:bg-orange-600',
-  secondary: 'bg-violet-600 text-white hover:bg-violet-700',
-  outline: 'border border-slate-300 bg-white text-slate-900 hover:bg-slate-50',
-  ghost: 'text-slate-700 hover:bg-slate-100',
+  primary: 'bg-[var(--theme-primary)] text-white hover:opacity-90',
+  secondary: 'bg-[var(--theme-secondary)] text-white hover:opacity-90',
+  outline:
+    'border border-[var(--theme-border)] bg-[var(--theme-card)] text-[var(--theme-foreground)] hover:border-[var(--theme-primary)]',
+  ghost: 'text-[var(--theme-foreground)] hover:bg-[var(--theme-card)]',
 }
 
 export function Button({
@@ -22,7 +23,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${variantClasses[variant]} ${className}`}
+      className={`rounded-lg px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${variantClasses[variant]} ${className}`}
       {...props}
     >
       {children}

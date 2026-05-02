@@ -3,6 +3,9 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import http from 'http'
+import jwt from 'jsonwebtoken'
+import { Server, Socket } from 'socket.io'
 import { prisma } from './prisma'
 import { authenticate } from './middleware/auth.middleware'
 
@@ -12,6 +15,128 @@ const app = express()
 
 const PORT = process.env.PORT || 3006
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const server = http.createServer(app)
+const io = new Server(server, {
+  cors: {
+    origin: FRONTEND_URL,
+    credentials: true,
+  },
+})
+
+type JwtPayload = {
+  userId: string
+  email: string
+  role: string
+}
+
+type SocketUser = {
+  id: string
+  firstName: string
+  lastName: string
+  username: string
+  email: string
+  profilePicturePath: string | null
+  bio: string | null
+  role: string
+  accountStatus: string
+}
+
+const userRoom = (userId: string) => `user:${userId}`
+
+function getSocketToken(socket: Socket) {
+  const authToken = socket.handshake.auth?.token
+
+  if (typeof authToken === 'string' && authToken.trim()) {
+    return authToken
+  }
+
+  const authHeader = socket.handshake.headers.authorization
+
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1]
+  }
+
+  return null
+}
+
+async function authenticateSocket(socket: Socket, next: (error?: Error) => void) {
+  try {
+    const token = getSocketToken(socket)
+    const secret = process.env.JWT_SECRET
+
+    if (!token) {
+      return next(new Error('Authentication token is required'))
+    }
+
+    if (!secret) {
+      return next(new Error('JWT_SECRET is not defined'))
+    }
+
+    const decoded = jwt.verify(token, secret) as JwtPayload
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: decoded.userId,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        profilePicturePath: true,
+        bio: true,
+        role: true,
+        accountStatus: true,
+      },
+    })
+
+    if (!user || user.accountStatus !== 'ACTIVE') {
+      return next(new Error('Invalid or inactive user'))
+    }
+
+    socket.data.user = user
+
+    return next()
+  } catch (error) {
+    return next(
+      new Error(error instanceof Error ? error.message : 'Invalid or expired authentication token'),
+    )
+  }
+}
+
+async function emitUnreadCount(userId: string) {
+  const unreadCount = await prisma.notification.count({
+    where: {
+      userId,
+      isRead: false,
+    },
+  })
+
+  io.to(userRoom(userId)).emit('notification:unread-count', {
+    unreadCount,
+  })
+}
+
+async function emitNotificationCreated(userId: string, notification: unknown) {
+  io.to(userRoom(userId)).emit('notification:new', {
+    notification,
+  })
+
+  await emitUnreadCount(userId)
+}
+
+io.use(authenticateSocket)
+
+io.on('connection', (socket: Socket) => {
+  const user = socket.data.user as SocketUser
+
+  socket.join(userRoom(user.id))
+  socket.emit('realtime:connected', {
+    service: 'notification-service',
+    userId: user.id,
+  })
+})
 
 app.use(helmet())
 app.use(
@@ -122,6 +247,8 @@ app.post('/internal', async (req: Request, res: Response) => {
       },
     })
 
+    await emitNotificationCreated(String(userId), notification)
+
     return res.status(201).json({
       success: true,
       message: 'Notification created successfully',
@@ -173,6 +300,12 @@ app.patch('/read-all', authenticate, async (req: Request, res: Response) => {
         isRead: true,
       },
     })
+
+    io.to(userRoom(currentUser.id)).emit('notifications:read-all', {
+      updatedCount: updatedCount.count,
+    })
+
+    await emitUnreadCount(currentUser.id)
 
     return res.status(200).json({
       success: true,
@@ -249,6 +382,12 @@ app.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
       },
     })
 
+    io.to(userRoom(currentUser.id)).emit('notification:read', {
+      notification: updatedNotification,
+    })
+
+    await emitUnreadCount(currentUser.id)
+
     return res.status(200).json({
       success: true,
       message: 'Notification marked as read successfully',
@@ -294,6 +433,12 @@ app.delete('/:id', authenticate, async (req: Request, res: Response) => {
       },
     })
 
+    io.to(userRoom(currentUser.id)).emit('notification:deleted', {
+      notificationId: id,
+    })
+
+    await emitUnreadCount(currentUser.id)
+
     return res.status(200).json({
       success: true,
       message: 'Notification deleted successfully',
@@ -307,6 +452,6 @@ app.delete('/:id', authenticate, async (req: Request, res: Response) => {
   }
 })
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Notification Service running on http://localhost:${PORT}`)
 })

@@ -9,6 +9,7 @@ import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { FeedPage } from './pages/feed/FeedPage'
 import { ProfilePage } from './pages/profile/ProfilePage'
+import { SettingsPage } from './pages/settings/SettingsPage'
 import { ServiceDetailsPage } from './pages/services/ServiceDetailsPage'
 import { ProviderProfilePage } from './pages/providers/ProviderProfilePage'
 import { ProviderRequestPage } from './pages/providers/ProviderRequestPage'
@@ -59,6 +60,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path={paths.feed} element={<FeedPage />} />
             <Route path={paths.profile} element={<ProfilePage />} />
+            <Route path={paths.settings} element={<SettingsPage />} />
             <Route path={paths.notifications} element={<NotificationsPage />} />
             <Route path={paths.chats} element={<ChatsPage />} />
             <Route path={paths.chatConversation} element={<ChatsPage />} />

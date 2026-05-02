@@ -3,6 +3,9 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import http from 'http'
+import jwt from 'jsonwebtoken'
+import { Server, Socket } from 'socket.io'
 import { prisma } from './prisma'
 import { authenticate } from './middleware/auth.middleware'
 
@@ -12,6 +15,297 @@ const app = express()
 
 const PORT = process.env.PORT || 3007
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const server = http.createServer(app)
+const io = new Server(server, {
+  cors: {
+    origin: FRONTEND_URL,
+    credentials: true,
+  },
+})
+
+type JwtPayload = {
+  userId: string
+  email: string
+  role: string
+}
+
+type SocketUser = {
+  id: string
+  firstName: string
+  lastName: string
+  username: string
+  email: string
+  profilePicturePath: string | null
+  bio: string | null
+  role: string
+  accountStatus: string
+}
+
+type SocketAck = (response: { success: boolean; message?: string }) => void
+
+const userRoom = (userId: string) => `user:${userId}`
+const conversationRoom = (conversationId: string) => `conversation:${conversationId}`
+
+function getSocketToken(socket: Socket) {
+  const authToken = socket.handshake.auth?.token
+
+  if (typeof authToken === 'string' && authToken.trim()) {
+    return authToken
+  }
+
+  const authHeader = socket.handshake.headers.authorization
+
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1]
+  }
+
+  return null
+}
+
+async function authenticateSocket(socket: Socket, next: (error?: Error) => void) {
+  try {
+    const token = getSocketToken(socket)
+    const secret = process.env.JWT_SECRET
+
+    if (!token) {
+      return next(new Error('Authentication token is required'))
+    }
+
+    if (!secret) {
+      return next(new Error('JWT_SECRET is not defined'))
+    }
+
+    const decoded = jwt.verify(token, secret) as JwtPayload
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: decoded.userId,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        profilePicturePath: true,
+        bio: true,
+        role: true,
+        accountStatus: true,
+      },
+    })
+
+    if (!user || user.accountStatus !== 'ACTIVE') {
+      return next(new Error('Invalid or inactive user'))
+    }
+
+    socket.data.user = user
+
+    return next()
+  } catch (error) {
+    return next(
+      new Error(error instanceof Error ? error.message : 'Invalid or expired authentication token'),
+    )
+  }
+}
+
+async function isConversationParticipant(conversationId: string, userId: string) {
+  const participant = await prisma.conversationParticipant.findUnique({
+    where: {
+      conversationId_userId: {
+        conversationId,
+        userId,
+      },
+    },
+  })
+
+  return Boolean(participant)
+}
+
+async function getConversationParticipantIds(conversationId: string) {
+  const participants = await prisma.conversationParticipant.findMany({
+    where: {
+      conversationId,
+    },
+    select: {
+      userId: true,
+    },
+  })
+
+  return participants.map((participant) => participant.userId)
+}
+
+async function emitConversationUpdated(conversationId: string, participantIds?: string[]) {
+  const conversation = await prisma.conversation.findUnique({
+    where: {
+      id: conversationId,
+    },
+    include: {
+      participants: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+              profilePicturePath: true,
+              role: true,
+            },
+          },
+        },
+      },
+      messages: {
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 1,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+              profilePicturePath: true,
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          messages: true,
+        },
+      },
+    },
+  })
+
+  if (!conversation) {
+    return
+  }
+
+  const recipients = participantIds ?? conversation.participants.map((participant) => participant.userId)
+
+  await Promise.all(
+    recipients.map(async (userId) => {
+      const unreadCount = await prisma.message.count({
+        where: {
+          conversationId,
+          isRead: false,
+          senderId: {
+            not: userId,
+          },
+        },
+      })
+
+      io.to(userRoom(userId)).emit('conversation:updated', {
+        conversation: {
+          ...conversation,
+          unreadCount,
+        },
+      })
+    }),
+  )
+}
+
+async function emitToConversationParticipants(
+  conversationId: string,
+  eventName: string,
+  payload: unknown,
+  excludeUserId?: string,
+) {
+  const participantIds = await getConversationParticipantIds(conversationId)
+
+  participantIds
+    .filter((userId) => userId !== excludeUserId)
+    .forEach((userId) => {
+      io.to(userRoom(userId)).emit(eventName, payload)
+    })
+}
+
+io.use(authenticateSocket)
+
+io.on('connection', (socket: Socket) => {
+  const user = socket.data.user as SocketUser
+
+  socket.join(userRoom(user.id))
+  socket.emit('realtime:connected', {
+    service: 'chat-service',
+    userId: user.id,
+  })
+
+  socket.on('conversation:join', async (conversationId: string, ack?: SocketAck) => {
+    try {
+      const isParticipant = await isConversationParticipant(String(conversationId), user.id)
+
+      if (!isParticipant) {
+        ack?.({
+          success: false,
+          message: 'You are not allowed to join this conversation',
+        })
+        return
+      }
+
+      socket.join(conversationRoom(String(conversationId)))
+      ack?.({ success: true })
+    } catch (error) {
+      ack?.({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to join conversation',
+      })
+    }
+  })
+
+  socket.on('conversation:leave', (conversationId: string, ack?: SocketAck) => {
+    socket.leave(conversationRoom(String(conversationId)))
+    ack?.({ success: true })
+  })
+
+  socket.on('typing:start', async (payload: { conversationId?: string }) => {
+    if (!payload.conversationId) {
+      return
+    }
+
+    const conversationId = String(payload.conversationId)
+    const isParticipant = await isConversationParticipant(conversationId, user.id)
+
+    if (!isParticipant) {
+      return
+    }
+
+    await emitToConversationParticipants(
+      conversationId,
+      'typing:start',
+      {
+        conversationId,
+        userId: user.id,
+      },
+      user.id,
+    )
+  })
+
+  socket.on('typing:stop', async (payload: { conversationId?: string }) => {
+    if (!payload.conversationId) {
+      return
+    }
+
+    const conversationId = String(payload.conversationId)
+    const isParticipant = await isConversationParticipant(conversationId, user.id)
+
+    if (!isParticipant) {
+      return
+    }
+
+    await emitToConversationParticipants(
+      conversationId,
+      'typing:stop',
+      {
+        conversationId,
+        userId: user.id,
+      },
+      user.id,
+    )
+  })
+})
 
 app.use(helmet())
 app.use(
@@ -414,6 +708,17 @@ app.post('/conversations/:id/messages', authenticate, async (req: Request, res: 
       },
     })
 
+    const participantIds = await getConversationParticipantIds(conversationId)
+
+    participantIds.forEach((userId) => {
+      io.to(userRoom(userId)).emit('message:new', {
+        conversationId,
+        message,
+      })
+    })
+
+    await emitConversationUpdated(conversationId, participantIds)
+
     return res.status(201).json({
       success: true,
       message: 'Message sent successfully',
@@ -462,6 +767,18 @@ app.patch('/conversations/:id/read', authenticate, async (req: Request, res: Res
       },
     })
 
+    const participantIds = await getConversationParticipantIds(conversationId)
+
+    participantIds.forEach((userId) => {
+      io.to(userRoom(userId)).emit('message:read', {
+        conversationId,
+        userId: currentUser.id,
+        updatedCount: result.count,
+      })
+    })
+
+    await emitConversationUpdated(conversationId, participantIds)
+
     return res.status(200).json({
       success: true,
       message: 'Conversation messages marked as read successfully',
@@ -489,50 +806,6 @@ app.get('/conversations/:id', authenticate, async (req: Request, res: Response) 
         },
       },
     })
-
-    app.delete('/messages/:messageId', authenticate, async (req: Request, res: Response) => {
-  try {
-    const currentUser = res.locals.user as { id: string }
-    const messageId = String(req.params.messageId)
-
-    const message = await prisma.message.findUnique({
-      where: {
-        id: messageId,
-      },
-    })
-
-    if (!message) {
-      return res.status(404).json({
-        success: false,
-        message: 'Message not found',
-      })
-    }
-
-    if (message.senderId !== currentUser.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'You can only delete your own messages',
-      })
-    }
-
-    await prisma.message.delete({
-      where: {
-        id: messageId,
-      },
-    })
-
-    return res.status(200).json({
-      success: true,
-      message: 'Message deleted successfully',
-    })
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to delete message',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-  }
-})
 
     if (!participant) {
       return res.status(403).json({
@@ -606,6 +879,61 @@ app.get('/conversations/:id', authenticate, async (req: Request, res: Response) 
   }
 })
 
-app.listen(PORT, () => {
+app.delete('/messages/:messageId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const messageId = String(req.params.messageId)
+
+    const message = await prisma.message.findUnique({
+      where: {
+        id: messageId,
+      },
+    })
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found',
+      })
+    }
+
+    if (message.senderId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own messages',
+      })
+    }
+
+    const participantIds = await getConversationParticipantIds(message.conversationId)
+
+    await prisma.message.delete({
+      where: {
+        id: messageId,
+      },
+    })
+
+    participantIds.forEach((userId) => {
+      io.to(userRoom(userId)).emit('message:deleted', {
+        conversationId: message.conversationId,
+        messageId,
+      })
+    })
+
+    await emitConversationUpdated(message.conversationId, participantIds)
+
+    return res.status(200).json({
+      success: true,
+      message: 'Message deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete message',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+server.listen(PORT, () => {
   console.log(`Chat Service running on port ${PORT}`)
 })

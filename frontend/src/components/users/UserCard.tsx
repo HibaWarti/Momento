@@ -14,14 +14,14 @@ export function UserCard({ user }: UserCardProps) {
   return (
     <Card className="flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--theme-secondary)] text-sm font-bold text-white">
           {avatar || 'US'}
         </div>
 
         <div>
-          <h3 className="font-semibold text-slate-950">{displayName}</h3>
-          <p className="text-sm text-slate-500">@{user.username}</p>
-          <p className="mt-1 line-clamp-1 text-sm text-slate-500">
+          <h3 className="font-semibold text-[var(--theme-foreground)]">{displayName}</h3>
+          <p className="text-sm text-[var(--theme-muted)]">@{user.username}</p>
+          <p className="mt-1 line-clamp-1 text-sm text-[var(--theme-muted)]">
             {user.bio || 'No bio yet.'}
           </p>
         </div>

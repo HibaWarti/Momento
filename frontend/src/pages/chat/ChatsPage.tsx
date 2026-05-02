@@ -12,14 +12,57 @@ import {
   sendMessage,
 } from '../../api/chatApi'
 import { getAssetUrl } from '../../api/client'
+import {
+  createChatSocket,
+  type RealtimeChatMessage,
+  type RealtimeConversation,
+} from '../../api/realtime'
 import { paths } from '../../routes/paths'
 import { useAuthStore } from '../../store/authStore'
 import type { ChatMessage, Conversation } from '../../types/chat'
+
+function sortMessagesByDate(messages: ChatMessage[]) {
+  return [...messages].sort(
+    (first, second) => new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime(),
+  )
+}
+
+function upsertMessage(messages: ChatMessage[], message: ChatMessage) {
+  const exists = messages.some((currentMessage) => currentMessage.id === message.id)
+
+  return sortMessagesByDate(exists ? messages : [...messages, message])
+}
+
+function normalizeRealtimeMessage(message: RealtimeChatMessage) {
+  return message as unknown as ChatMessage
+}
+
+function upsertConversation(
+  conversations: Conversation[],
+  conversation: RealtimeConversation,
+) {
+  const normalizedConversation = conversation as Conversation
+  const exists = conversations.some(
+    (currentConversation) => currentConversation.id === conversation.id,
+  )
+  const nextConversations = exists
+    ? conversations.map((currentConversation) =>
+        currentConversation.id === conversation.id
+          ? { ...currentConversation, ...normalizedConversation }
+          : currentConversation,
+      )
+    : [normalizedConversation, ...conversations]
+
+  return [...nextConversations].sort(
+    (first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime(),
+  )
+}
 
 export function ChatsPage() {
   const { conversationId } = useParams()
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
+  const token = useAuthStore((state) => state.token)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [messageContent, setMessageContent] = useState('')
@@ -52,6 +95,52 @@ export function ChatsPage() {
 
     void loadConversations()
   }, [conversationId, navigate])
+
+  useEffect(() => {
+    if (!token) {
+      return
+    }
+
+    const socket = createChatSocket({ token })
+
+    socket.on('message:new', ({ conversationId: incomingConversationId, message }) => {
+      if (incomingConversationId === conversationId) {
+        setMessages((current) => upsertMessage(current, normalizeRealtimeMessage(message)))
+
+        if (message.senderId !== user?.id) {
+          void markConversationAsRead(incomingConversationId)
+        }
+      }
+    })
+
+    socket.on('message:deleted', ({ conversationId: incomingConversationId, messageId }) => {
+      if (incomingConversationId === conversationId) {
+        setMessages((current) => current.filter((message) => message.id !== messageId))
+      }
+    })
+
+    socket.on('message:read', ({ conversationId: incomingConversationId }) => {
+      if (incomingConversationId === conversationId) {
+        setMessages((current) => current.map((message) => ({ ...message, isRead: true })))
+      }
+    })
+
+    socket.on('conversation:updated', ({ conversation }) => {
+      setConversations((current) => upsertConversation(current, conversation))
+    })
+
+    if (conversationId) {
+      socket.emit('conversation:join', conversationId)
+    }
+
+    return () => {
+      if (conversationId) {
+        socket.emit('conversation:leave', conversationId)
+      }
+
+      socket.disconnect()
+    }
+  }, [conversationId, token, user?.id])
 
   useEffect(() => {
     const loadConversationMessages = async () => {
@@ -96,7 +185,7 @@ export function ChatsPage() {
     try {
       setIsSending(true)
       const response = await sendMessage(conversationId, messageContent.trim())
-      setMessages((current) => [...current, response.chatMessage])
+      setMessages((current) => upsertMessage(current, response.chatMessage))
       setMessageContent('')
       setConversations((current) =>
         current.map((conversation) =>
