@@ -13,6 +13,60 @@ const app = express()
 
 const PORT = process.env.PORT || 3005
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const NOTIFICATION_SERVICE_URL =
+  process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006'
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || 'change_this_internal_secret'
+
+type NotificationType =
+  | 'LIKE'
+  | 'COMMENT'
+  | 'FOLLOW'
+  | 'PROVIDER_REQUEST_APPROVED'
+  | 'PROVIDER_REQUEST_REJECTED'
+  | 'REPORT_STATUS'
+  | 'TICKET_STATUS'
+  | 'TICKET_REPLY'
+  | 'SYSTEM'
+
+async function createNotification(payload: {
+  userId: string
+  type: NotificationType
+  title: string
+  message: string
+}) {
+  try {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/internal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': INTERNAL_API_SECRET,
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      console.error('Failed to create notification', response.status, await response.text())
+    }
+  } catch (error) {
+    console.error('Failed to create notification', error)
+  }
+}
+
+const allowedTicketStatuses = ['OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED', 'CLOSED'] as const
+const allowedTicketPriorities = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const
+
+function normalizeEnumValue<T extends readonly string[]>(
+  value: unknown,
+  allowedValues: T,
+): T[number] | null {
+  if (value === undefined || value === null) {
+    return null
+  }
+
+  const normalized = String(value).trim().toUpperCase()
+
+  return allowedValues.includes(normalized) ? normalized : null
+}
 
 app.use(helmet())
 app.use(
@@ -519,6 +573,13 @@ app.patch('/provider-requests/:id/approve', authenticate, requireAdmin, async (r
       return { updatedRequest, updatedUser, providerProfile }
     })
 
+    await createNotification({
+      userId: providerRequest.userId,
+      type: 'PROVIDER_REQUEST_APPROVED',
+      title: 'Provider request approved',
+      message: 'Your provider request was approved. You can now publish services.',
+    })
+
     return res.status(200).json({
       success: true,
       message: 'Provider request approved successfully',
@@ -547,6 +608,7 @@ app.patch('/provider-requests/:id/reject', authenticate, requireAdmin, async (re
       select: {
         id: true,
         status: true,
+        userId: true,
       },
     })
 
@@ -573,6 +635,13 @@ app.patch('/provider-requests/:id/reject', authenticate, requireAdmin, async (re
         reviewedAt: new Date(),
         reviewedById: currentUser.id,
       },
+    })
+
+    await createNotification({
+      userId: providerRequest.userId,
+      type: 'PROVIDER_REQUEST_REJECTED',
+      title: 'Provider request rejected',
+      message: 'Your provider request was rejected. You can review your information and try again later.',
     })
 
     return res.status(200).json({
@@ -617,6 +686,21 @@ app.get('/reports', authenticate, requireAdmin, async (_req: Request, res: Respo
           },
         },
         post: true,
+        comment: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                email: true,
+                profilePicturePath: true,
+              },
+            },
+            post: true,
+          },
+        },
         service: true,
         reviewedBy: {
           select: {
@@ -672,6 +756,21 @@ app.get('/reports/:id', authenticate, requireAdmin, async (req: Request, res: Re
           },
         },
         post: true,
+        comment: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                email: true,
+                profilePicturePath: true,
+              },
+            },
+            post: true,
+          },
+        },
         service: true,
         reviewedBy: {
           select: {
@@ -754,6 +853,7 @@ app.patch('/reports/:id/resolve', authenticate, requireAdmin, async (req: Reques
   try {
     const currentUser = res.locals.user as { id: string }
     const reportId = String(req.params.id)
+    const { moderationNote, actionTaken } = req.body
 
     const report = await prisma.report.findUnique({
       where: {
@@ -761,6 +861,7 @@ app.patch('/reports/:id/resolve', authenticate, requireAdmin, async (req: Reques
       },
       select: {
         id: true,
+        reporterId: true,
       },
     })
 
@@ -777,9 +878,34 @@ app.patch('/reports/:id/resolve', authenticate, requireAdmin, async (req: Reques
       },
       data: {
         status: 'RESOLVED',
+        moderationNote:
+          moderationNote !== undefined && moderationNote !== null
+            ? String(moderationNote).trim()
+            : undefined,
+        actionTaken:
+          actionTaken !== undefined && actionTaken !== null
+            ? String(actionTaken).trim()
+            : undefined,
         reviewedAt: new Date(),
         reviewedById: currentUser.id,
       },
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'REPORT_REVIEWED',
+        entityType: 'REPORT',
+        entityId: reportId,
+        description: 'Report resolved',
+      },
+    })
+
+    await createNotification({
+      userId: report.reporterId,
+      type: 'REPORT_STATUS',
+      title: 'Report resolved',
+      message: 'Your report was reviewed and marked as resolved.',
     })
 
     return res.status(200).json({
@@ -800,6 +926,7 @@ app.patch('/reports/:id/reject', authenticate, requireAdmin, async (req: Request
   try {
     const currentUser = res.locals.user as { id: string }
     const reportId = String(req.params.id)
+    const { moderationNote, actionTaken } = req.body
 
     const report = await prisma.report.findUnique({
       where: {
@@ -807,6 +934,7 @@ app.patch('/reports/:id/reject', authenticate, requireAdmin, async (req: Request
       },
       select: {
         id: true,
+        reporterId: true,
       },
     })
 
@@ -823,9 +951,34 @@ app.patch('/reports/:id/reject', authenticate, requireAdmin, async (req: Request
       },
       data: {
         status: 'REJECTED',
+        moderationNote:
+          moderationNote !== undefined && moderationNote !== null
+            ? String(moderationNote).trim()
+            : undefined,
+        actionTaken:
+          actionTaken !== undefined && actionTaken !== null
+            ? String(actionTaken).trim()
+            : undefined,
         reviewedAt: new Date(),
         reviewedById: currentUser.id,
       },
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'REPORT_REVIEWED',
+        entityType: 'REPORT',
+        entityId: reportId,
+        description: 'Report rejected',
+      },
+    })
+
+    await createNotification({
+      userId: report.reporterId,
+      type: 'REPORT_STATUS',
+      title: 'Report reviewed',
+      message: 'Your report was reviewed and rejected.',
     })
 
     return res.status(200).json({
@@ -837,6 +990,369 @@ app.patch('/reports/:id/reject', authenticate, requireAdmin, async (req: Request
     return res.status(500).json({
       success: false,
       message: 'Failed to reject report',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/tickets', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const status = normalizeEnumValue(req.query.status, allowedTicketStatuses)
+
+    const tickets = await prisma.supportTicket.findMany({
+      where: status
+        ? {
+            status,
+          }
+        : {},
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+            profilePicturePath: true,
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+          },
+        },
+        relatedUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+            profilePicturePath: true,
+          },
+        },
+        relatedPost: true,
+        relatedComment: true,
+        relatedService: true,
+        relatedReport: true,
+        messages: {
+          take: 1,
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Support tickets retrieved successfully',
+      tickets,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve support tickets',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/tickets/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const ticketId = String(req.params.id)
+
+    const ticket = await prisma.supportTicket.findUnique({
+      where: {
+        id: ticketId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+            profilePicturePath: true,
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+          },
+        },
+        relatedUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+            profilePicturePath: true,
+          },
+        },
+        relatedPost: true,
+        relatedComment: true,
+        relatedService: true,
+        relatedReport: {
+          include: {
+            reporter: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                email: true,
+                profilePicturePath: true,
+              },
+            },
+          },
+        },
+        messages: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+          include: {
+            author: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                email: true,
+                profilePicturePath: true,
+                role: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Support ticket not found',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Support ticket retrieved successfully',
+      ticket,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve support ticket',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/tickets/:id/status', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const ticketId = String(req.params.id)
+    const { status, priority, assignedToId, assignToMe } = req.body
+    const nextStatus = normalizeEnumValue(status, allowedTicketStatuses)
+    const nextPriority = normalizeEnumValue(priority, allowedTicketPriorities)
+
+    if (!nextStatus && !nextPriority && assignedToId === undefined && !assignToMe) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status, priority, or assignment is required',
+      })
+    }
+
+    const ticket = await prisma.supportTicket.findUnique({
+      where: {
+        id: ticketId,
+      },
+      select: {
+        id: true,
+        userId: true,
+      },
+    })
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Support ticket not found',
+      })
+    }
+
+    const updatedTicket = await prisma.supportTicket.update({
+      where: {
+        id: ticketId,
+      },
+      data: {
+        status: nextStatus ?? undefined,
+        priority: nextPriority ?? undefined,
+        assignedToId: assignToMe ? currentUser.id : assignedToId === null ? null : assignedToId ? String(assignedToId) : undefined,
+        closedAt: nextStatus === 'CLOSED' ? new Date() : nextStatus ? null : undefined,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    await createNotification({
+      userId: ticket.userId,
+      type: 'TICKET_STATUS',
+      title: 'Support ticket updated',
+      message: `Your support ticket is now ${updatedTicket.status.replace(/_/g, ' ').toLowerCase()}.`,
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'TICKET_UPDATED',
+        entityType: 'SUPPORT_TICKET',
+        entityId: ticketId,
+        description: 'Admin updated a support ticket',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Support ticket updated successfully',
+      ticket: updatedTicket,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update support ticket',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.post('/tickets/:id/messages', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const ticketId = String(req.params.id)
+    const { message } = req.body
+
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is required',
+      })
+    }
+
+    const ticket = await prisma.supportTicket.findUnique({
+      where: {
+        id: ticketId,
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+      },
+    })
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Support ticket not found',
+      })
+    }
+
+    if (ticket.status === 'CLOSED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Closed tickets cannot receive new messages',
+      })
+    }
+
+    const ticketMessage = await prisma.supportTicketMessage.create({
+      data: {
+        ticketId,
+        authorId: currentUser.id,
+        message: String(message).trim(),
+        isStaff: true,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+            profilePicturePath: true,
+            role: true,
+          },
+        },
+      },
+    })
+
+    await prisma.supportTicket.update({
+      where: {
+        id: ticketId,
+      },
+      data: {
+        status: ticket.status === 'OPEN' ? 'IN_PROGRESS' : ticket.status,
+        assignedToId: currentUser.id,
+      },
+    })
+
+    await createNotification({
+      userId: ticket.userId,
+      type: 'TICKET_REPLY',
+      title: 'Support replied',
+      message: 'An admin replied to your support ticket.',
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'TICKET_MESSAGE_CREATED',
+        entityType: 'SUPPORT_TICKET',
+        entityId: ticketId,
+        description: 'Admin replied to a support ticket',
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'Support ticket message created successfully',
+      ticketMessage,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create support ticket message',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
@@ -932,6 +1448,108 @@ app.patch('/posts/:id/restore', authenticate, requireAdmin, async (req: Request,
     return res.status(500).json({
       success: false,
       message: 'Failed to restore post',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/comments/:id/hide', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const commentId = String(req.params.id)
+
+    const comment = await prisma.comment.findUnique({
+      where: {
+        id: commentId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    })
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      })
+    }
+
+    if (comment.status === 'DELETED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot hide a deleted comment',
+      })
+    }
+
+    const updatedComment = await prisma.comment.update({
+      where: {
+        id: commentId,
+      },
+      data: {
+        status: 'HIDDEN',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Comment hidden successfully',
+      comment: updatedComment,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to hide comment',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/comments/:id/restore', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const commentId = String(req.params.id)
+
+    const comment = await prisma.comment.findUnique({
+      where: {
+        id: commentId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    })
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      })
+    }
+
+    if (comment.status === 'DELETED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot restore a deleted comment',
+      })
+    }
+
+    const updatedComment = await prisma.comment.update({
+      where: {
+        id: commentId,
+      },
+      data: {
+        status: 'VISIBLE',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Comment restored successfully',
+      comment: updatedComment,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to restore comment',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
@@ -1138,6 +1756,8 @@ app.get('/stats', authenticate, requireAdmin, async (_req: Request, res: Respons
       totalReports,
       pendingReports,
       resolvedReports,
+      totalTickets,
+      openTickets,
       totalReviews,
     ] = await Promise.all([
       prisma.user.count(),
@@ -1195,6 +1815,14 @@ app.get('/stats', authenticate, requireAdmin, async (_req: Request, res: Respons
           status: 'RESOLVED',
         },
       }),
+      prisma.supportTicket.count(),
+      prisma.supportTicket.count({
+        where: {
+          status: {
+            in: ['OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER'],
+          },
+        },
+      }),
       prisma.review.count(),
     ])
 
@@ -1217,6 +1845,8 @@ app.get('/stats', authenticate, requireAdmin, async (_req: Request, res: Respons
         totalReports,
         pendingReports,
         resolvedReports,
+        totalTickets,
+        openTickets,
         totalReviews,
       },
     })
@@ -1321,6 +1951,8 @@ app.get('/superadmin/stats', authenticate, requireSuperAdmin, async (_req: Reque
       totalReports,
       pendingReports,
       resolvedReports,
+      totalTickets,
+      openTickets,
       totalReviews,
     ] = await Promise.all([
       prisma.user.count(),
@@ -1378,6 +2010,14 @@ app.get('/superadmin/stats', authenticate, requireSuperAdmin, async (_req: Reque
           status: 'RESOLVED',
         },
       }),
+      prisma.supportTicket.count(),
+      prisma.supportTicket.count({
+        where: {
+          status: {
+            in: ['OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER'],
+          },
+        },
+      }),
       prisma.review.count(),
     ])
 
@@ -1400,6 +2040,8 @@ app.get('/superadmin/stats', authenticate, requireSuperAdmin, async (_req: Reque
         totalReports,
         pendingReports,
         resolvedReports,
+        totalTickets,
+        openTickets,
         totalReviews,
       },
     })

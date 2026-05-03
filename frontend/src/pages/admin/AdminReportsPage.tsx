@@ -7,11 +7,13 @@ import { Card } from '../../components/ui/Card'
 import {
   blockUser,
   getReports,
+  hideComment,
   hidePost,
   hideService,
   markReportReviewing,
   rejectReport,
   resolveReport,
+  restoreComment,
   restorePost,
   restoreService,
 } from '../../api/adminApi'
@@ -103,6 +105,12 @@ export function AdminReportsPage() {
         } else {
           await hideService(report.serviceId)
         }
+      } else if (report.commentId && report.comment) {
+        if (report.comment.status === 'HIDDEN') {
+          await restoreComment(report.commentId)
+        } else {
+          await hideComment(report.commentId)
+        }
       } else if (report.reportedUserId) {
         await blockUser(report.reportedUserId)
       }
@@ -117,6 +125,7 @@ export function AdminReportsPage() {
 
   const getReportType = (report: AdminReport) => {
     if (report.postId) return 'POST'
+    if (report.commentId) return 'COMMENT'
     if (report.serviceId) return 'SERVICE'
     if (report.reportedUserId) return 'USER'
     return 'UNKNOWN'
@@ -152,7 +161,7 @@ export function AdminReportsPage() {
           <div className="border-b border-slate-100 px-6 py-5">
             <h2 className="font-bold text-slate-950">Reports list</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Reports can concern posts or users.
+              Reports can concern posts, comments, services, or users.
             </p>
           </div>
 
@@ -183,6 +192,8 @@ export function AdminReportsPage() {
                         ? `${report.reportedUser.firstName} ${report.reportedUser.lastName}`
                         : report.post
                           ? report.post.content.slice(0, 24)
+                          : report.comment
+                            ? report.comment.content.slice(0, 24)
                           : report.service
                             ? report.service.title
                             : 'Unknown target'}
@@ -267,6 +278,10 @@ export function AdminReportsPage() {
                       ? selectedReport.service.status === 'HIDDEN'
                         ? 'Restore service'
                         : 'Hide service'
+                      : selectedReport.comment
+                        ? selectedReport.comment.status === 'HIDDEN'
+                          ? 'Restore comment'
+                          : 'Hide comment'
                       : selectedReport.reportedUser
                         ? 'Block user'
                         : 'No moderation action'}

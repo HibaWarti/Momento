@@ -1,6 +1,7 @@
 import { apiRequest } from './client'
 import type {
   CommentsResponse,
+  PostComment,
   PostResponse,
   PostsResponse,
   ReactionType,
@@ -39,7 +40,7 @@ export function getPostComments(postId: string) {
 }
 
 export function addPostComment(postId: string, content: string) {
-  return apiRequest<CommentsResponse>(`/posts/${postId}/comments`, {
+  return apiRequest<{ success: boolean; message: string; comment: PostComment }>(`/posts/${postId}/comments`, {
     method: 'POST',
     body: { content },
   })
@@ -48,6 +49,13 @@ export function addPostComment(postId: string, content: string) {
 export function deletePostComment(commentId: string) {
   return apiRequest<{ success: boolean; message: string }>(`/posts/comments/${commentId}`, {
     method: 'DELETE',
+  })
+}
+
+export function reportPostComment(commentId: string, reason: string, description?: string) {
+  return apiRequest<{ success: boolean; message: string }>(`/posts/comments/${commentId}/reports`, {
+    method: 'POST',
+    body: { reason, description },
   })
 }
 
@@ -68,6 +76,18 @@ export function reportPost(postId: string, reason: string, description?: string)
   return apiRequest<{ success: boolean; message: string }>(`/posts/${postId}/reports`, {
     method: 'POST',
     body: { reason, description },
+  })
+}
+
+export function savePost(postId: string) {
+  return apiRequest<{ success: boolean; message: string }>(`/posts/${postId}/save`, {
+    method: 'POST',
+  })
+}
+
+export function unsavePost(postId: string) {
+  return apiRequest<{ success: boolean; message: string }>(`/posts/${postId}/save`, {
+    method: 'DELETE',
   })
 }
 

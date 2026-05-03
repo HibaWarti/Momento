@@ -1,5 +1,5 @@
 import type { AuthUser } from './auth'
-import type { Post } from './post'
+import type { Post, PostComment } from './post'
 import type { Service } from './provider'
 
 export type ReportStatus = 'PENDING' | 'REVIEWING' | 'RESOLVED' | 'REJECTED'
@@ -20,6 +20,8 @@ export type AdminStats = {
   totalReports?: number
   pendingReports?: number
   resolvedReports?: number
+  totalTickets?: number
+  openTickets?: number
   totalReviews?: number
   totalNotifications?: number
 }
@@ -29,9 +31,12 @@ export type AdminReport = {
   reporterId: string
   reportedUserId?: string | null
   postId?: string | null
+  commentId?: string | null
   serviceId?: string | null
   reason: string
   description?: string | null
+  moderationNote?: string | null
+  actionTaken?: string | null
   status: ReportStatus
   createdAt?: string
   updatedAt?: string
@@ -39,6 +44,7 @@ export type AdminReport = {
   reporter?: AuthUser
   reportedUser?: AuthUser | null
   post?: Post | null
+  comment?: PostComment | null
   service?: Service | null
 }
 

@@ -43,6 +43,12 @@ enum PostStatus {
   DELETED
 }
 
+enum CommentStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
 enum ServiceStatus {
   ACTIVE
   HIDDEN
@@ -77,6 +83,8 @@ enum NotificationType {
   PROVIDER_REQUEST_APPROVED
   PROVIDER_REQUEST_REJECTED
   REPORT_STATUS
+  TICKET_STATUS
+  TICKET_REPLY
   SYSTEM
 }
 
@@ -91,8 +99,35 @@ enum LogAction {
   USER_BLOCKED
   USER_UNBLOCKED
   REPORT_REVIEWED
+  REPORT_CREATED
   SERVICE_CREATED
   SERVICE_DELETED
+  TICKET_CREATED
+  TICKET_UPDATED
+  TICKET_MESSAGE_CREATED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_USER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  ACCOUNT
+  TECHNICAL
+  REPORT
+  PROVIDER
+  OTHER
 }
 
 model User {
@@ -123,11 +158,17 @@ model User {
   notifications      Notification[]
   logs               Log[]
   reviews            Review[]
+  savedPosts         SavedPost[]
+  savedServices      SavedService[]
 
   following                Follow[]                  @relation("UserFollowing")
   followers                Follow[]                  @relation("UserFollowers")
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
+  supportTickets           SupportTicket[]           @relation("TicketCreator")
+  assignedTickets          SupportTicket[]           @relation("TicketAssignee")
+  relatedTickets           SupportTicket[]           @relation("TicketRelatedUser")
+  ticketMessages           SupportTicketMessage[]    @relation("TicketMessageAuthor")
 }
 
 model Post {
@@ -143,7 +184,9 @@ model Post {
   comments  Comment[]
   reactions Reaction[]
 
-  reports Report[]
+  reports        Report[]
+  savedBy        SavedPost[]
+  supportTickets SupportTicket[] @relation("TicketPost")
 }
 
 model PostImage {
@@ -158,6 +201,7 @@ model PostImage {
 model Comment {
   id        String   @id @default(uuid())
   content   String
+  status    CommentStatus @default(VISIBLE)
   postId    String
   userId    String
   createdAt DateTime @default(now())
@@ -165,6 +209,9 @@ model Comment {
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reports        Report[]
+  supportTickets SupportTicket[] @relation("TicketComment")
 }
 
 model Reaction {
@@ -236,6 +283,8 @@ model Service {
   price             Decimal?
   city              String
   category          String
+  subcategory       String?
+  keywords          String[]      @default([])
   status            ServiceStatus @default(ACTIVE)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -244,6 +293,8 @@ model Service {
   images          ServiceImage[]
   reviews         Review[]
   reports         Report[]
+  savedBy         SavedService[]
+  supportTickets SupportTicket[] @relation("TicketService")
 }
 
 model ServiceImage {
@@ -260,10 +311,13 @@ model Report {
   reporterId     String
   reportedUserId String?
   postId         String?
+  commentId      String?
   serviceId      String?
   reason         String
   description    String?
   status         ReportStatus @default(PENDING)
+  moderationNote String?
+  actionTaken    String?
   createdAt      DateTime     @default(now())
   reviewedAt     DateTime?
   reviewedById   String?
@@ -271,8 +325,36 @@ model Report {
   reporter     User     @relation("ReportCreator", fields: [reporterId], references: [id], onDelete: Cascade)
   reportedUser User?    @relation("ReportedUser", fields: [reportedUserId], references: [id])
   post         Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment      Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   service      Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   reviewedBy   User?    @relation("ReportReviewer", fields: [reviewedById], references: [id])
+  supportTickets SupportTicket[] @relation("TicketReport")
+}
+
+model SavedPost {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId])
+}
+
+model SavedService {
+  id        String   @id @default(uuid())
+  userId    String
+  serviceId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serviceId])
+  @@index([userId])
 }
 
 model Notification {
@@ -319,6 +401,52 @@ model Message {
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model SupportTicket {
+  id               String         @id @default(uuid())
+  userId           String
+  assignedToId     String?
+  relatedUserId    String?
+  relatedPostId    String?
+  relatedCommentId String?
+  relatedServiceId String?
+  relatedReportId  String?
+  subject          String
+  description      String
+  category         TicketCategory @default(OTHER)
+  status           TicketStatus   @default(OPEN)
+  priority         TicketPriority @default(NORMAL)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  closedAt         DateTime?
+
+  user           User     @relation("TicketCreator", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo     User?    @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  relatedUser    User?    @relation("TicketRelatedUser", fields: [relatedUserId], references: [id])
+  relatedPost    Post?    @relation("TicketPost", fields: [relatedPostId], references: [id], onDelete: SetNull)
+  relatedComment Comment? @relation("TicketComment", fields: [relatedCommentId], references: [id], onDelete: SetNull)
+  relatedService Service? @relation("TicketService", fields: [relatedServiceId], references: [id], onDelete: SetNull)
+  relatedReport  Report?  @relation("TicketReport", fields: [relatedReportId], references: [id], onDelete: SetNull)
+  messages       SupportTicketMessage[]
+
+  @@index([userId])
+  @@index([assignedToId])
+  @@index([status])
+}
+
+model SupportTicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  authorId  String
+  message   String
+  isStaff   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User          @relation("TicketMessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
 }
 
 model Log {

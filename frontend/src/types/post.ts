@@ -1,6 +1,7 @@
 export type ReactionType = 'LIKE' | 'LOVE' | 'WOW' | 'HAHA' | 'SAD' | 'ANGRY'
 
 export type PostStatus = 'ACTIVE' | 'HIDDEN' | 'DELETED'
+export type CommentStatus = 'VISIBLE' | 'HIDDEN' | 'DELETED'
 
 export type PostAuthor = {
   id: string
@@ -8,6 +9,7 @@ export type PostAuthor = {
   lastName: string
   username: string
   profilePicturePath?: string | null
+  role?: 'USER' | 'PROVIDER' | 'ADMIN' | 'SUPERADMIN'
 }
 
 export type PostImage = {
@@ -23,6 +25,7 @@ export type PostComment = {
   content: string
   userId: string
   postId: string
+  status?: CommentStatus
   createdAt: string
   updatedAt?: string
   user: PostAuthor

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { ProviderBadge } from '../../components/users/ProviderBadge'
 import { getProviders } from '../../api/providerApi'
 import type { ProviderProfile } from '../../types/provider'
 
@@ -69,7 +70,10 @@ export function ProvidersPage() {
               <div className="h-32 bg-gradient-to-br from-pink-200 via-violet-200 to-orange-200" />
               <div className="p-6">
                 <div className="flex flex-col gap-2">
-                  <h3 className="text-xl font-bold text-slate-950">{provider.professionalName}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xl font-bold text-slate-950">{provider.professionalName}</h3>
+                    <ProviderBadge compact />
+                  </div>
                   <p className="text-sm text-slate-500">
                     by {provider.user?.firstName} {provider.user?.lastName}
                   </p>

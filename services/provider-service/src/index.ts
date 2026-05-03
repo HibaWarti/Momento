@@ -13,6 +13,84 @@ const app = express()
 
 const PORT = process.env.PORT || 3004
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const NOTIFICATION_SERVICE_URL =
+  process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006'
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || 'change_this_internal_secret'
+
+type NotificationType =
+  | 'LIKE'
+  | 'COMMENT'
+  | 'FOLLOW'
+  | 'PROVIDER_REQUEST_APPROVED'
+  | 'PROVIDER_REQUEST_REJECTED'
+  | 'REPORT_STATUS'
+  | 'TICKET_STATUS'
+  | 'TICKET_REPLY'
+  | 'SYSTEM'
+
+async function createNotification(payload: {
+  userId: string
+  type: NotificationType
+  title: string
+  message: string
+}) {
+  try {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/internal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': INTERNAL_API_SECRET,
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      console.error('Failed to create notification', response.status, await response.text())
+    }
+  } catch (error) {
+    console.error('Failed to create notification', error)
+  }
+}
+
+async function notifyAdmins(title: string, message: string) {
+  const admins = await prisma.user.findMany({
+    where: {
+      role: {
+        in: ['ADMIN', 'SUPERADMIN'],
+      },
+      accountStatus: 'ACTIVE',
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  await Promise.all(
+    admins.map((admin) =>
+      createNotification({
+        userId: admin.id,
+        type: 'SYSTEM',
+        title,
+        message,
+      }),
+    ),
+  )
+}
+
+function normalizeKeywords(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((keyword) => String(keyword).trim()).filter(Boolean)
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((keyword) => keyword.trim())
+      .filter(Boolean)
+  }
+
+  return []
+}
 
 app.use(helmet())
 app.use(
@@ -161,6 +239,11 @@ app.post('/requests', authenticate, async (req: Request, res: Response) => {
             : null,
       },
     })
+
+    await notifyAdmins(
+      'New provider request',
+      `${providerRequest.professionalName} submitted a provider application.`,
+    )
 
     return res.status(201).json({
       success: true,
@@ -417,7 +500,7 @@ app.get('/me/services', authenticate, async (req: Request, res: Response) => {
 app.post('/services', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
-    const { title, description, price, city, category } = req.body
+    const { title, description, price, city, category, subcategory, keywords } = req.body
 
     if (!title || !description || !city || !category) {
       return res.status(400).json({
@@ -463,6 +546,11 @@ app.post('/services', authenticate, async (req: Request, res: Response) => {
         price: parsedPrice,
         city: String(city).trim(),
         category: String(category).trim(),
+        subcategory:
+          subcategory !== undefined && subcategory !== null
+            ? String(subcategory).trim()
+            : null,
+        keywords: normalizeKeywords(keywords),
       },
       include: {
         providerProfile: {
@@ -543,6 +631,59 @@ app.get('/services', async (_req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve services',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/services/saved/me', authenticate, async (_req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+
+    const savedServices = await prisma.savedService.findMany({
+      where: {
+        userId: currentUser.id,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        service: {
+          include: {
+            providerProfile: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    username: true,
+                    profilePicturePath: true,
+                    bio: true,
+                  },
+                },
+              },
+            },
+            images: true,
+            _count: {
+              select: {
+                reviews: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Saved services retrieved successfully',
+      savedServices,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve saved services',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
@@ -674,6 +815,13 @@ app.post('/services/:id/reviews', authenticate, async (req: Request, res: Respon
       },
     })
 
+    await createNotification({
+      userId: service.providerProfile.userId,
+      type: 'COMMENT',
+      title: 'New service review',
+      message: `${review.user.firstName} ${review.user.lastName} reviewed your service.`,
+    })
+
     return res.status(201).json({
       success: true,
       message: 'Review created successfully',
@@ -764,7 +912,7 @@ app.patch('/services/:id', authenticate, async (req: Request, res: Response) => 
   try {
     const currentUser = res.locals.user as { id: string; role?: string }
     const serviceId = String(req.params.id)
-    const { title, description, price, city, category } = req.body
+    const { title, description, price, city, category, subcategory, keywords } = req.body
 
     if (currentUser.role !== 'PROVIDER') {
       return res.status(403).json({
@@ -778,7 +926,9 @@ app.patch('/services/:id', authenticate, async (req: Request, res: Response) => 
       description === undefined &&
       price === undefined &&
       city === undefined &&
-      category === undefined
+      category === undefined &&
+      subcategory === undefined &&
+      keywords === undefined
     ) {
       return res.status(400).json({
         success: false,
@@ -821,6 +971,8 @@ app.patch('/services/:id', authenticate, async (req: Request, res: Response) => 
       price?: number | null
       city?: string
       category?: string
+      subcategory?: string | null
+      keywords?: string[]
     } = {}
 
     if (title !== undefined) {
@@ -834,6 +986,15 @@ app.patch('/services/:id', authenticate, async (req: Request, res: Response) => 
     }
     if (category !== undefined) {
       updateData.category = String(category).trim()
+    }
+    if (subcategory !== undefined) {
+      updateData.subcategory =
+        subcategory === null || String(subcategory).trim() === ''
+          ? null
+          : String(subcategory).trim()
+    }
+    if (keywords !== undefined) {
+      updateData.keywords = normalizeKeywords(keywords)
     }
     if (price !== undefined) {
       if (price === null || String(price).trim() === '') {
@@ -1092,6 +1253,81 @@ app.delete('/reviews/:reviewId', authenticate, async (req: Request, res: Respons
   }
 })
 
+app.post('/services/:id/save', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const serviceId = String(req.params.id)
+
+    const service = await prisma.service.findUnique({
+      where: {
+        id: serviceId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    })
+
+    if (!service || service.status !== 'ACTIVE') {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found',
+      })
+    }
+
+    const savedService = await prisma.savedService.upsert({
+      where: {
+        userId_serviceId: {
+          userId: currentUser.id,
+          serviceId,
+        },
+      },
+      update: {},
+      create: {
+        userId: currentUser.id,
+        serviceId,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Service saved successfully',
+      savedService,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save service',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.delete('/services/:id/save', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const serviceId = String(req.params.id)
+
+    await prisma.savedService.deleteMany({
+      where: {
+        userId: currentUser.id,
+        serviceId,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Service removed from saved items',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to unsave service',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.post('/services/:id/reports', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
@@ -1145,6 +1381,18 @@ app.post('/services/:id/reports', authenticate, async (req: Request, res: Respon
             : null,
       },
     })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'REPORT_CREATED',
+        entityType: 'SERVICE',
+        entityId: serviceId,
+        description: `Service report created: ${String(reason).trim()}`,
+      },
+    })
+
+    await notifyAdmins('New service report', 'A service was reported for moderation review.')
 
     return res.status(201).json({
       success: true,

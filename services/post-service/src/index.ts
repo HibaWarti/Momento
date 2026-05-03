@@ -13,6 +13,69 @@ const app = express()
 
 const PORT = process.env.PORT || 3003
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const NOTIFICATION_SERVICE_URL =
+  process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006'
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || 'change_this_internal_secret'
+
+type NotificationType =
+  | 'LIKE'
+  | 'COMMENT'
+  | 'FOLLOW'
+  | 'PROVIDER_REQUEST_APPROVED'
+  | 'PROVIDER_REQUEST_REJECTED'
+  | 'REPORT_STATUS'
+  | 'TICKET_STATUS'
+  | 'TICKET_REPLY'
+  | 'SYSTEM'
+
+async function createNotification(payload: {
+  userId: string
+  type: NotificationType
+  title: string
+  message: string
+}) {
+  try {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/internal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': INTERNAL_API_SECRET,
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      console.error('Failed to create notification', response.status, await response.text())
+    }
+  } catch (error) {
+    console.error('Failed to create notification', error)
+  }
+}
+
+async function notifyAdmins(title: string, message: string) {
+  const admins = await prisma.user.findMany({
+    where: {
+      role: {
+        in: ['ADMIN', 'SUPERADMIN'],
+      },
+      accountStatus: 'ACTIVE',
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  await Promise.all(
+    admins.map((admin) =>
+      createNotification({
+        userId: admin.id,
+        type: 'REPORT_STATUS',
+        title,
+        message,
+      }),
+    ),
+  )
+}
 
 app.use(helmet())
 app.use(
@@ -84,9 +147,19 @@ app.post('/', authenticate, async (req: Request, res: Response) => {
             lastName: true,
             username: true,
             profilePicturePath: true,
+            role: true,
           },
         },
         images: true,
+        reactions: {
+          select: {
+            id: true,
+            type: true,
+            userId: true,
+            postId: true,
+            createdAt: true,
+          },
+        },
         _count: {
           select: {
             comments: true,
@@ -128,9 +201,19 @@ app.get('/', async (_req: Request, res: Response) => {
             lastName: true,
             username: true,
             profilePicturePath: true,
+            role: true,
           },
         },
         images: true,
+        reactions: {
+          select: {
+            id: true,
+            type: true,
+            userId: true,
+            postId: true,
+            createdAt: true,
+          },
+        },
         _count: {
           select: {
             comments: true,
@@ -150,6 +233,141 @@ app.get('/', async (_req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve posts',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.get('/saved/me', authenticate, async (_req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+
+    const savedPosts = await prisma.savedPost.findMany({
+      where: {
+        userId: currentUser.id,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        post: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+                profilePicturePath: true,
+                role: true,
+              },
+            },
+            images: true,
+            reactions: {
+              select: {
+                id: true,
+                type: true,
+                userId: true,
+                postId: true,
+                createdAt: true,
+              },
+            },
+            _count: {
+              select: {
+                comments: true,
+                reactions: true,
+                reports: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Saved posts retrieved successfully',
+      savedPosts,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve saved posts',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.post('/:id/save', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+
+    const post = await prisma.post.findUnique({
+      where: {
+        id: postId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    })
+
+    if (!post || post.status !== 'ACTIVE') {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found',
+      })
+    }
+
+    const savedPost = await prisma.savedPost.upsert({
+      where: {
+        userId_postId: {
+          userId: currentUser.id,
+          postId,
+        },
+      },
+      update: {},
+      create: {
+        userId: currentUser.id,
+        postId,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Post saved successfully',
+      savedPost,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save post',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.delete('/:id/save', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const postId = String(req.params.id)
+
+    await prisma.savedPost.deleteMany({
+      where: {
+        userId: currentUser.id,
+        postId,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Post removed from saved items',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to unsave post',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
@@ -221,9 +439,19 @@ app.patch('/:id', authenticate, async (req: Request, res: Response) => {
             lastName: true,
             username: true,
             profilePicturePath: true,
+            role: true,
           },
         },
         images: true,
+        reactions: {
+          select: {
+            id: true,
+            type: true,
+            userId: true,
+            postId: true,
+            createdAt: true,
+          },
+        },
         _count: {
           select: {
             comments: true,
@@ -320,6 +548,7 @@ app.post('/:id/comments', authenticate, async (req: Request, res: Response) => {
       select: {
         id: true,
         status: true,
+        authorId: true,
       },
     })
 
@@ -351,10 +580,20 @@ app.post('/:id/comments', authenticate, async (req: Request, res: Response) => {
             lastName: true,
             username: true,
             profilePicturePath: true,
+            role: true,
           },
         },
       },
     })
+
+    if (post.authorId !== currentUser.id) {
+      await createNotification({
+        userId: post.authorId,
+        type: 'COMMENT',
+        title: 'New comment',
+        message: `${comment.user.firstName} ${comment.user.lastName} commented on your post.`,
+      })
+    }
 
     return res.status(201).json({
       success: true,
@@ -381,6 +620,7 @@ app.get('/:id/comments', async (req: Request, res: Response) => {
       select: {
         id: true,
         status: true,
+        authorId: true,
       },
     })
 
@@ -401,6 +641,7 @@ app.get('/:id/comments', async (req: Request, res: Response) => {
     const comments = await prisma.comment.findMany({
       where: {
         postId,
+        status: 'VISIBLE',
       },
       orderBy: {
         createdAt: 'desc',
@@ -413,6 +654,7 @@ app.get('/:id/comments', async (req: Request, res: Response) => {
             lastName: true,
             username: true,
             profilePicturePath: true,
+            role: true,
           },
         },
       },
@@ -492,6 +734,95 @@ app.delete(
   },
 )
 
+app.post('/comments/:commentId/reports', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const commentId = String(req.params.commentId)
+    const { reason, description } = req.body
+
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Report reason is required',
+      })
+    }
+
+    const comment = await prisma.comment.findUnique({
+      where: {
+        id: commentId,
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        post: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+    })
+
+    if (!comment || comment.status === 'DELETED' || comment.post.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      })
+    }
+
+    if (comment.status === 'HIDDEN' || comment.post.status === 'HIDDEN') {
+      return res.status(403).json({
+        success: false,
+        message: 'This comment cannot be reported',
+      })
+    }
+
+    if (comment.userId === currentUser.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot report your own comment',
+      })
+    }
+
+    const report = await prisma.report.create({
+      data: {
+        reporterId: currentUser.id,
+        commentId,
+        reason: String(reason).trim(),
+        description:
+          description !== undefined && description !== null
+            ? String(description).trim()
+            : null,
+      },
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'REPORT_CREATED',
+        entityType: 'COMMENT',
+        entityId: commentId,
+        description: `Comment report created: ${String(reason).trim()}`,
+      },
+    })
+
+    await notifyAdmins('New comment report', 'A user reported a comment for moderation review.')
+
+    return res.status(201).json({
+      success: true,
+      message: 'Comment reported successfully',
+      report,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to report comment',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.post('/:id/reactions', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
@@ -515,6 +846,7 @@ app.post('/:id/reactions', authenticate, async (req: Request, res: Response) => 
       select: {
         id: true,
         status: true,
+        authorId: true,
       },
     })
 
@@ -531,6 +863,19 @@ app.post('/:id/reactions', authenticate, async (req: Request, res: Response) => 
         message: 'Cannot react to this post',
       })
     }
+
+    const existingReaction = await prisma.reaction.findUnique({
+      where: {
+        postId_userId: {
+          postId,
+          userId: currentUser.id,
+        },
+      },
+      select: {
+        id: true,
+        type: true,
+      },
+    })
 
     const reaction = await prisma.reaction.upsert({
       where: {
@@ -560,6 +905,25 @@ app.post('/:id/reactions', authenticate, async (req: Request, res: Response) => 
           | 'ANGRY',
       },
     })
+
+    if (!existingReaction && post.authorId !== currentUser.id) {
+      const reactor = await prisma.user.findUnique({
+        where: {
+          id: currentUser.id,
+        },
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      })
+
+      await createNotification({
+        userId: post.authorId,
+        type: 'LIKE',
+        title: 'New reaction',
+        message: `${reactor?.firstName ?? 'Someone'} ${reactor?.lastName ?? ''} reacted to your post.`.trim(),
+      })
+    }
 
     return res.status(200).json({
       success: true,
@@ -678,6 +1042,18 @@ app.post('/:id/reports', authenticate, async (req: Request, res: Response) => {
       },
     })
 
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'REPORT_CREATED',
+        entityType: 'POST',
+        entityId: postId,
+        description: `Post report created: ${String(reason).trim()}`,
+      },
+    })
+
+    await notifyAdmins('New post report', 'A user reported a post for moderation review.')
+
     return res.status(201).json({
       success: true,
       message: 'Post reported successfully',
@@ -708,10 +1084,14 @@ app.get('/:id', async (req: Request, res: Response) => {
             lastName: true,
             username: true,
             profilePicturePath: true,
+            role: true,
           },
         },
         images: true,
         comments: {
+          where: {
+            status: 'VISIBLE',
+          },
           orderBy: {
             createdAt: 'desc',
           },
@@ -721,10 +1101,11 @@ app.get('/:id', async (req: Request, res: Response) => {
                 id: true,
                 firstName: true,
                 lastName: true,
-                username: true,
-                profilePicturePath: true,
-              },
+              username: true,
+              profilePicturePath: true,
+              role: true,
             },
+          },
           },
         },
         reactions: {

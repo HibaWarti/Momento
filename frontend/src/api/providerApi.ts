@@ -151,6 +151,8 @@ export function createService(payload: {
   price?: number
   city: string
   category: string
+  subcategory?: string
+  keywords?: string[]
 }) {
   return apiRequest<ServiceResponse>('/providers/services', {
     method: 'POST',
@@ -164,6 +166,8 @@ export function updateService(id: string, payload: Partial<{
   price?: number
   city: string
   category: string
+  subcategory?: string | null
+  keywords?: string[]
   status?: string
 }>) {
   return apiRequest<ServiceResponse>(`/providers/services/${id}`, {
@@ -212,6 +216,18 @@ export function reportService(serviceId: string, reason: string, description?: s
   return apiRequest<{ success: boolean; message: string }>(`/providers/services/${serviceId}/reports`, {
     method: 'POST',
     body: { reason, description },
+  })
+}
+
+export function saveService(serviceId: string) {
+  return apiRequest<{ success: boolean; message: string }>(`/providers/services/${serviceId}/save`, {
+    method: 'POST',
+  })
+}
+
+export function unsaveService(serviceId: string) {
+  return apiRequest<{ success: boolean; message: string }>(`/providers/services/${serviceId}/save`, {
+    method: 'DELETE',
   })
 }
 

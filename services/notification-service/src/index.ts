@@ -186,7 +186,7 @@ app.get('/auth-check', authenticate, (_req: Request, res: Response) => {
 app.post('/internal', async (req: Request, res: Response) => {
   try {
     const internalSecret = req.headers['x-internal-secret']
-    const expectedSecret = process.env.INTERNAL_API_SECRET
+    const expectedSecret = process.env.INTERNAL_API_SECRET || 'change_this_internal_secret'
 
     if (!internalSecret || internalSecret !== expectedSecret) {
       return res.status(403).json({
@@ -211,6 +211,8 @@ app.post('/internal', async (req: Request, res: Response) => {
       'PROVIDER_REQUEST_APPROVED',
       'PROVIDER_REQUEST_REJECTED',
       'REPORT_STATUS',
+      'TICKET_STATUS',
+      'TICKET_REPLY',
       'SYSTEM',
     ]
 

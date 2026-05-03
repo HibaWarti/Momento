@@ -1,6 +1,7 @@
 import { UserPlus } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { ProviderBadge } from './ProviderBadge'
 import type { UserSummary } from '../../types/user'
 
 type UserCardProps = {
@@ -19,7 +20,10 @@ export function UserCard({ user }: UserCardProps) {
         </div>
 
         <div>
-          <h3 className="font-semibold text-[var(--theme-foreground)]">{displayName}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-[var(--theme-foreground)]">{displayName}</h3>
+            {user.role === 'PROVIDER' ? <ProviderBadge compact /> : null}
+          </div>
           <p className="text-sm text-[var(--theme-muted)]">@{user.username}</p>
           <p className="mt-1 line-clamp-1 text-sm text-[var(--theme-muted)]">
             {user.bio || 'No bio yet.'}

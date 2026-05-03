@@ -119,6 +119,14 @@ export function rejectReport(id: string) {
   return apiRequest<ReportResponse>(`/admin/reports/${id}/reject`, { method: 'PATCH' })
 }
 
+export function hideComment(id: string) {
+  return apiRequest<{ success: boolean; message: string }>(`/admin/comments/${id}/hide`, { method: 'PATCH' })
+}
+
+export function restoreComment(id: string) {
+  return apiRequest<{ success: boolean; message: string }>(`/admin/comments/${id}/restore`, { method: 'PATCH' })
+}
+
 export function hidePost(id: string) {
   return apiRequest<{ success: boolean; message: string }>(`/admin/posts/${id}/hide`, { method: 'PATCH' })
 }

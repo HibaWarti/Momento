@@ -5,6 +5,7 @@ import { MapPin, Star } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { ProviderBadge } from '../users/ProviderBadge'
 import { getAssetUrl } from '../../api/client'
 import { createOrGetConversation } from '../../api/chatApi'
 import { paths } from '../../routes/paths'
@@ -68,9 +69,10 @@ export function ServiceCard({ service }: ServiceCardProps) {
 
         <h3 className="mt-4 text-lg font-bold text-slate-950">{service.title}</h3>
 
-        <p className="mt-1 text-sm text-slate-500">
-          by {service.providerProfile?.professionalName || 'Provider'}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+          <span>by {service.providerProfile?.professionalName || 'Provider'}</span>
+          <ProviderBadge compact />
+        </div>
 
         <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
           <MapPin size={16} />

@@ -41,6 +41,11 @@ Base path:
 | GET | /:id/followers | Get user followers | No |
 | GET | /:id/following | Get users followed by this user | No |
 | POST | /:id/reports | Report a user | Yes |
+| POST | /tickets | Open a support ticket | Yes |
+| GET | /tickets | Get current user's support tickets | Yes |
+| GET | /tickets/:id | Get current user's support ticket details | Yes |
+| POST | /tickets/:id/messages | Add a message to own support ticket | Yes |
+| PATCH | /tickets/:id/close | Close own support ticket | Yes |
 
 ---
 
@@ -63,9 +68,13 @@ Base path:
 | POST | /:id/comments | Add comment to post | Yes |
 | GET | /:id/comments | Get comments of a post | No |
 | DELETE | /comments/:commentId | Delete own comment | Yes |
+| POST | /comments/:commentId/reports | Report a comment | Yes |
 | POST | /:id/reactions | Add or update reaction | Yes |
 | DELETE | /:id/reactions | Remove reaction | Yes |
 | POST | /:id/reports | Report a post | Yes |
+| GET | /saved/me | Get current user's saved posts | Yes |
+| POST | /:id/save | Save a post | Yes |
+| DELETE | /:id/save | Unsave a post | Yes |
 | POST | /:id/images | Upload images for a post | Yes |
 | DELETE | /:id/images/:imageId | Delete a post image | Yes |
 
@@ -100,6 +109,9 @@ Base path:
 | PATCH | /reviews/:reviewId | Update own review | Yes |
 | DELETE | /reviews/:reviewId | Delete own review | Yes |
 | POST | /services/:id/reports | Report a service | Yes |
+| GET | /services/saved/me | Get current user's saved services | Yes |
+| POST | /services/:id/save | Save a service | Yes |
+| DELETE | /services/:id/save | Unsave a service | Yes |
 | POST | /services/:id/images | Upload images for a service | Yes |
 | DELETE | /services/:id/images/:imageId | Delete a service image | Yes |
 
@@ -150,8 +162,14 @@ Base path:
 | PATCH | /reports/:id/reviewing | Mark report as reviewing | Yes (Admin/SuperAdmin) |
 | PATCH | /reports/:id/resolve | Resolve report | Yes (Admin/SuperAdmin) |
 | PATCH | /reports/:id/reject | Reject report | Yes (Admin/SuperAdmin) |
+| GET | /tickets | Get support tickets | Yes (Admin/SuperAdmin) |
+| GET | /tickets/:id | Get support ticket details | Yes (Admin/SuperAdmin) |
+| PATCH | /tickets/:id/status | Update support ticket status, priority, or assignment | Yes (Admin/SuperAdmin) |
+| POST | /tickets/:id/messages | Reply to support ticket | Yes (Admin/SuperAdmin) |
 | PATCH | /posts/:id/hide | Hide a post | Yes (Admin/SuperAdmin) |
 | PATCH | /posts/:id/restore | Restore a post | Yes (Admin/SuperAdmin) |
+| PATCH | /comments/:id/hide | Hide a comment | Yes (Admin/SuperAdmin) |
+| PATCH | /comments/:id/restore | Restore a comment | Yes (Admin/SuperAdmin) |
 | PATCH | /services/:id/hide | Hide a service | Yes (Admin/SuperAdmin) |
 | PATCH | /services/:id/restore | Restore a service | Yes (Admin/SuperAdmin) |
 | PATCH | /reviews/:id/hide | Hide a review | Yes (Admin/SuperAdmin) |

@@ -13,7 +13,7 @@ The platform includes the following access levels:
 - Admin
 - SuperAdmin
 
-Visitors can browse public content without authentication.  
+Visitors can see the public landing page and public post detail pages opened by direct post id.  
 Registered users can create posts and interact with the platform.  
 Providers are registered users whose provider request has been approved by an admin. After approval, the user's role changes from `USER` to `PROVIDER`, and a provider profile is created.  
 Admins manage users, moderation, provider requests, reports, services, reviews, logs, and dashboard statistics.  
@@ -25,18 +25,21 @@ Momento does not include a separate `Event` entity in the first version. Posts a
 
 ## 2. Version 1 Scope
 
-In the first version, Momento focuses on:
+In the current v3 direction, Momento focuses on:
 
-- Public browsing of posts, user profiles, provider profiles, and services
+- A public landing page for visitors
+- Public post access only through a direct post URL/id when content is public
 - User authentication and profile management
-- Posts with multiple images
-- Comments, reactions, follows, and reports
+- Posts with multiple images now, with frontend video support planned in the post flow
+- Comments, reactions, follows, saved posts/services, and reports
+- Comment reports and comment moderation
 - Provider requests with CIN number and CIN picture
-- Provider profiles and services
+- Provider profiles and services with category, subcategory, and searchable keywords
 - Service images and service reviews
-- Admin moderation of users, posts, reports, services, and reviews
-- Notifications using normal HTTP requests
-- Basic chat using normal HTTP requests
+- User support tickets through "Report a problem"
+- Admin moderation of users, posts, comments, reports, services, reviews, and support tickets
+- Notifications through HTTP and Socket.IO events
+- Chat through HTTP and Socket.IO events
 - Logs and statistics for admin and SuperAdmin usage
 
 The first version does not include:
@@ -44,8 +47,6 @@ The first version does not include:
 - A separate event management module
 - Future event creation or event reservations
 - Online payment
-- Real-time chat
-- Real-time notifications
 - Advanced recommendation algorithms
 
 These features may be considered as future improvements.
@@ -58,16 +59,15 @@ These features may be considered as future improvements.
 
 A visitor can:
 
-- Browse public posts
-- View public user profiles
-- View provider profiles
-- View services
-- View post comments
-- View service reviews
-- View followers and following lists
+- View the public landing page
+- View a public post detail page when they have the direct post URL/id
 
 A visitor cannot:
 
+- Browse the authenticated feed
+- Browse user/provider suggestions
+- Browse the search or explore experience
+- View private profiles, services, followers, or following lists
 - Create posts
 - Upload images
 - Like or react to posts
@@ -98,9 +98,15 @@ A registered user can:
 - Delete their own comments
 - Add, update, or remove reactions on posts
 - Follow and unfollow users
+- Save and unsave posts
+- Save and unsave services
 - Report posts
+- Report comments
 - Report users
 - Report services
+- Open support tickets from "Report a problem"
+- Reply to their own support tickets
+- Close their own support tickets
 - Submit a provider request
 - View their provider request history
 - Add reviews to services
@@ -289,6 +295,7 @@ Constraint:
 A user can report:
 
 - A post
+- A comment
 - Another user
 - A service
 
@@ -297,15 +304,18 @@ A report contains:
 - Reporter
 - Reported user, optional
 - Reported post, optional
+- Reported comment, optional
 - Reported service, optional
 - Reason
 - Description, optional
 - Status
+- Moderation note, optional
+- Action taken, optional
 - Creation date
 - Review date
 - Reviewer, optional
 
-A report should concern one main target: either a post, a user, or a service.
+A report should concern one main target: either a post, a comment, a user, or a service.
 
 An admin or SuperAdmin can:
 
@@ -315,6 +325,7 @@ An admin or SuperAdmin can:
 - Resolve reports
 - Reject reports
 - Take moderation actions
+- Link a report to a support ticket when the user opens a broader problem ticket
 
 ---
 
@@ -331,6 +342,8 @@ A service can contain:
 - Price, optional
 - City
 - Category
+- Subcategory, optional
+- Search keywords
 - Status
 - Images
 - Reviews
@@ -445,9 +458,7 @@ A user can:
 - Mark all notifications as read
 - Delete a notification
 
-Notifications are implemented with normal HTTP requests in version 1.
-
-Real-time notifications can be added later as a future improvement.
+Notifications are persisted through HTTP APIs and delivered live through Socket.IO events when the user is connected.
 
 ---
 
@@ -468,9 +479,50 @@ A user can only view messages from conversations where they are a participant.
 
 A provider can receive messages from users interested in their services.
 
-In the first version, chat does not need to be real-time. Messages are loaded and sent using normal HTTP requests.
+Real-time chat events are handled with Socket.IO while HTTP endpoints remain the source of truth for persistence.
 
-Real-time chat with WebSocket or Socket.IO can be added later as a future improvement.
+---
+
+### 3.16 Support Ticket Rules
+
+A support ticket is opened by a registered user from "Report a problem".
+
+A support ticket can contain:
+
+- User who opened the ticket
+- Assigned admin, optional
+- Subject
+- Description
+- Category
+- Priority
+- Status
+- Linked reported item, optional
+- Linked report, optional
+- Messages between the user and admins
+- Creation date, update date, and close date
+
+A user can:
+
+- Create a support ticket
+- View their own tickets
+- Reply to their own tickets
+- Close their own tickets
+
+An admin or SuperAdmin can:
+
+- View all tickets
+- Assign a ticket
+- Change status and priority
+- Reply to the user
+- Link ticket context to a report or reported item
+
+Ticket statuses:
+
+- OPEN
+- IN_PROGRESS
+- WAITING_FOR_USER
+- RESOLVED
+- CLOSED
 
 ---
 
@@ -564,6 +616,7 @@ Fields:
 
 - id
 - content
+- status
 - postId
 - userId
 - createdAt
@@ -573,6 +626,8 @@ Relations:
 
 - A comment belongs to one post
 - A comment belongs to one user
+- A comment can have many reports
+- A comment can be linked to support tickets
 
 ---
 
@@ -691,6 +746,8 @@ Fields:
 - price
 - city
 - category
+- subcategory
+- keywords
 - status
 - createdAt
 - updatedAt
@@ -731,10 +788,13 @@ Fields:
 - reporterId
 - reportedUserId
 - postId
+- commentId
 - serviceId
 - reason
 - description
 - status
+- moderationNote
+- actionTaken
 - createdAt
 - reviewedAt
 - reviewedById
@@ -744,12 +804,14 @@ Relations:
 - A report belongs to one reporter
 - A report may concern one reported user
 - A report may concern one post
+- A report may concern one comment
 - A report may concern one service
 - A report may be reviewed by one admin or SuperAdmin
+- A report may be linked to support tickets
 
 Rule:
 
-- A report should concern one main target: either a user, a post, or a service
+- A report should concern one main target: either a user, a post, a comment, or a service
 
 ---
 
@@ -881,6 +943,104 @@ Relations:
 
 ---
 
+### 4.18 SavedPost
+
+Represents a post saved by a user.
+
+Fields:
+
+- id
+- userId
+- postId
+- createdAt
+
+Relations:
+
+- A saved post belongs to one user
+- A saved post belongs to one post
+
+Constraint:
+
+- One user can save the same post only once
+- The pair `userId/postId` must be unique
+
+---
+
+### 4.19 SavedService
+
+Represents a service saved by a user.
+
+Fields:
+
+- id
+- userId
+- serviceId
+- createdAt
+
+Relations:
+
+- A saved service belongs to one user
+- A saved service belongs to one service
+
+Constraint:
+
+- One user can save the same service only once
+- The pair `userId/serviceId` must be unique
+
+---
+
+### 4.20 SupportTicket
+
+Represents a support request opened through "Report a problem".
+
+Fields:
+
+- id
+- userId
+- assignedToId
+- relatedUserId
+- relatedPostId
+- relatedCommentId
+- relatedServiceId
+- relatedReportId
+- subject
+- description
+- category
+- status
+- priority
+- createdAt
+- updatedAt
+- closedAt
+
+Relations:
+
+- A support ticket belongs to the user who opened it
+- A support ticket may be assigned to an admin or SuperAdmin
+- A support ticket may link to a user, post, comment, service, or report
+- A support ticket can have many support ticket messages
+
+---
+
+### 4.21 SupportTicketMessage
+
+Represents a message inside a support ticket.
+
+Fields:
+
+- id
+- ticketId
+- authorId
+- message
+- isStaff
+- createdAt
+
+Relations:
+
+- A support ticket message belongs to one support ticket
+- A support ticket message belongs to one author
+
+---
+
 ## 5. Enums
 
 ### 5.1 UserRole
@@ -934,26 +1094,23 @@ Possible values:
 
 ---
 
-### 5.6 ServiceStatus
+### 5.6 CommentStatus
+
+Possible values:
+
+- VISIBLE
+- HIDDEN
+- DELETED
+
+---
+
+### 5.7 ServiceStatus
 
 Possible values:
 
 - ACTIVE
 - HIDDEN
 - DELETED
-
----
-
-### 5.7 ReactionType
-
-Possible values:
-
-- LIKE
-- LOVE
-- WOW
-- HAHA
-- SAD
-- ANGRY
 
 ---
 
@@ -987,11 +1144,13 @@ Possible values:
 - PROVIDER_REQUEST_APPROVED
 - PROVIDER_REQUEST_REJECTED
 - REPORT_STATUS
+- TICKET_STATUS
+- TICKET_REPLY
 - SYSTEM
 
 ---
 
-### 5.11 LogAction
+### 5.11  LogAction
 
 Possible values:
 
@@ -1005,8 +1164,47 @@ Possible values:
 - USER_BLOCKED
 - USER_UNBLOCKED
 - REPORT_REVIEWED
+- REPORT_CREATED
 - SERVICE_CREATED
 - SERVICE_DELETED
+- TICKET_CREATED
+- TICKET_UPDATED
+- TICKET_MESSAGE_CREATED
+
+---
+
+### 5.12 TicketStatus
+
+Possible values:
+
+- OPEN
+- IN_PROGRESS
+- WAITING_FOR_USER
+- RESOLVED
+- CLOSED
+
+---
+
+### 5.13 TicketPriority
+
+Possible values:
+
+- LOW
+- NORMAL
+- HIGH
+- URGENT
+
+---
+
+### 5.14 TicketCategory
+
+Possible values:
+
+- ACCOUNT
+- TECHNICAL
+- REPORT
+- PROVIDER
+- OTHER
 
 ---
 
@@ -1047,9 +1245,10 @@ The backend is organized around the following API modules:
 
 - Authentication APIs: registration, login, and authenticated user retrieval
 - User/Profile APIs: profile management, public profile access, follow system, and user reports
-- Posts APIs: posts, post images, comments, reactions, and post reports
-- Provider and Services APIs: provider requests, CIN picture upload, provider profiles, services, service images, service reviews, and service reports
-- Admin and Moderation APIs: users, provider requests, reports, post moderation, service moderation, review moderation, statistics, and logs
+- Posts APIs: posts, post images, comments, reactions, saved posts, post reports, and comment reports
+- Provider and Services APIs: provider requests, CIN picture upload, provider profiles, services, service images, service reviews, saved services, and service reports
+- Support Ticket APIs: user ticket creation, ticket history, ticket messages, and ticket closing
+- Admin and Moderation APIs: users, provider requests, reports, support tickets, post moderation, comment moderation, service moderation, review moderation, statistics, and logs
 - Notifications APIs: user notifications and unread count
 - Chat APIs: conversations, messages, read status, and message deletion
 - Static Uploads: local development access to uploaded profile, post, CIN, and service images

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import { ProviderBadge } from '../../components/users/ProviderBadge'
 import {
   addServiceReview,
   deleteServiceReview,
@@ -369,9 +370,12 @@ export function ServiceDetailsPage() {
               )}
 
               <div>
-                <p className="font-semibold text-slate-950">
-                  {service.providerProfile?.professionalName || 'Provider'}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-slate-950">
+                    {service.providerProfile?.professionalName || 'Provider'}
+                  </p>
+                  <ProviderBadge compact />
+                </div>
                 <p className="text-sm text-slate-500">
                   @{service.providerProfile?.user?.username}
                 </p>

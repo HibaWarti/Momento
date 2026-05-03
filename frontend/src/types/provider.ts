@@ -69,6 +69,8 @@ export type Service = {
   price?: number | null
   city: string
   category: string
+  subcategory?: string | null
+  keywords?: string[]
   status: ServiceStatus
   createdAt: string
   updatedAt?: string

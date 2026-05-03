@@ -1,17 +1,27 @@
 import { Flag, Heart, MessageCircle, Pencil, Send, Trash2 } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { getAssetUrl } from '../../api/client'
-import type { Post } from '../../types/post'
+import { ProviderBadge } from '../users/ProviderBadge'
+import type { Post, ReactionType } from '../../types/post'
 
 type PostCardProps = {
   post: Post
   currentUserId?: string
-  onReact?: (postId: string) => void
+  onReact?: (postId: string, type: ReactionType) => void
   onComment?: (postId: string) => void
   onReport?: (postId: string) => void
   onEdit?: (postId: string) => void
   onDelete?: (postId: string) => void
 }
+
+const reactionOptions: Array<{ type: ReactionType; label: string }> = [
+  { type: 'LIKE', label: 'Like' },
+  { type: 'LOVE', label: 'Love' },
+  { type: 'WOW', label: 'Wow' },
+  { type: 'HAHA', label: 'Haha' },
+  { type: 'SAD', label: 'Sad' },
+  { type: 'ANGRY', label: 'Angry' },
+]
 
 export function PostCard({
   post,
@@ -26,6 +36,8 @@ export function PostCard({
   const reactionCount = post._count?.reactions || 0
   const commentCount = post._count?.comments || 0
   const isOwnPost = post.authorId === currentUserId
+  const currentUserReaction = post.reactions?.find((reaction) => reaction.userId === currentUserId)
+  const isProvider = post.author.role === 'PROVIDER'
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -41,9 +53,12 @@ export function PostCard({
           </div>
 
           <div>
-            <p className="font-semibold text-[var(--theme-foreground)]">
-              {post.author.firstName} {post.author.lastName}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-[var(--theme-foreground)]">
+                {post.author.firstName} {post.author.lastName}
+              </p>
+              {isProvider ? <ProviderBadge compact /> : null}
+            </div>
             <p className="text-sm text-[var(--theme-muted)]">
               @{post.author.username} - {formatDate(post.createdAt)}
             </p>
@@ -92,13 +107,35 @@ export function PostCard({
 
       <div className="flex items-center justify-between border-t border-[var(--theme-border)] px-5 py-4">
         <div className="flex items-center gap-4">
-          <button
-            className="flex items-center gap-2 text-sm font-medium text-[var(--theme-muted)] hover:text-[var(--theme-accent)]"
-            onClick={() => onReact?.(post.id)}
-          >
-            <Heart size={20} />
-            {reactionCount}
-          </button>
+          <div className="group relative">
+            <button
+              className={`flex items-center gap-2 text-sm font-medium ${
+                currentUserReaction
+                  ? 'text-[var(--theme-error)]'
+                  : 'text-[var(--theme-muted)] hover:text-[var(--theme-accent)]'
+              }`}
+              onClick={() => onReact?.(post.id, currentUserReaction?.type ?? 'LIKE')}
+            >
+              <Heart size={20} className={currentUserReaction ? 'fill-current' : ''} />
+              {reactionCount}
+            </button>
+            <div className="invisible absolute bottom-8 left-0 z-10 flex min-w-max gap-1 rounded-full border border-[var(--theme-border)] bg-[var(--theme-card)] p-1.5 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
+              {reactionOptions.map((reaction) => (
+                <button
+                  key={reaction.type}
+                  type="button"
+                  className={`rounded-full px-2 py-1 text-xs font-semibold transition ${
+                    currentUserReaction?.type === reaction.type
+                      ? 'bg-[var(--theme-primary)] text-white'
+                      : 'text-[var(--theme-muted)] hover:bg-[var(--theme-background)] hover:text-[var(--theme-foreground)]'
+                  }`}
+                  onClick={() => onReact?.(post.id, reaction.type)}
+                >
+                  {reaction.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <button
             className="flex items-center gap-2 text-sm font-medium text-[var(--theme-muted)] hover:text-[var(--theme-primary)]"
@@ -134,7 +171,13 @@ export function PostCard({
           ) : null}
         </div>
 
-        <p className="hidden text-sm text-[var(--theme-muted)] sm:block">View discussion</p>
+        <button
+          type="button"
+          className="hidden text-sm font-medium text-[var(--theme-muted)] hover:text-[var(--theme-primary)] sm:block"
+          onClick={() => onComment?.(post.id)}
+        >
+          View discussion
+        </button>
       </div>
     </Card>
   )

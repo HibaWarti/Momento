@@ -2,9 +2,9 @@ import { MapPin, MessageCircle, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ServiceCard } from '../../components/services/ServiceCard'
-import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import { ProviderBadge } from '../../components/users/ProviderBadge'
 import { createOrGetConversation } from '../../api/chatApi'
 import { getProviderById } from '../../api/providerApi'
 import { getAssetUrl } from '../../api/client'
@@ -123,7 +123,7 @@ export function ProviderProfilePage() {
               <div className="pb-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-3xl font-bold text-slate-950">{provider.professionalName}</h1>
-                  <Badge variant="green">Verified Provider</Badge>
+                  <ProviderBadge label="Verified Provider" />
                 </div>
 
                 <p className="mt-1 text-slate-500">@{provider.user?.username}</p>

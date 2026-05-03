@@ -1,12 +1,10 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   Bell,
-  Home,
   LogOut,
   Menu,
   MessageCircle,
   Moon,
-  Search,
   Settings,
   Sparkles,
   Sun,
@@ -21,12 +19,11 @@ import { useThemeStore } from '../../store/themeStore'
 import { paths } from '../../routes/paths'
 import { getAssetUrl } from '../../api/client'
 import { getUnreadNotificationsCount } from '../../api/notificationApi'
-import { createNotificationSocket } from '../../api/realtime'
+import { getConversations } from '../../api/chatApi'
+import { createChatSocket, createNotificationSocket } from '../../api/realtime'
 
 const authLinks = [
   { label: 'Feed', href: paths.feed },
-  { label: 'Profile', href: paths.profile },
-  { label: 'Messages', href: paths.chats },
 ]
 
 export function Navbar() {
@@ -39,6 +36,7 @@ export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0)
 
   const avatarUrl = getAssetUrl(user?.profilePicturePath)
   const initials = useMemo(() => {
@@ -72,13 +70,48 @@ export function Navbar() {
       setUnreadCount(unreadCount)
     })
 
-    notificationSocket.on('notification:new', () => {
-      setUnreadCount((current) => current + 1)
+    return () => {
+      isActive = false
+      notificationSocket.disconnect()
+    }
+  }, [isAuthenticated, token])
+
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      setUnreadMessagesCount(0)
+      return
+    }
+
+    let isActive = true
+
+    const loadUnreadMessages = async () => {
+      try {
+        const response = await getConversations()
+        if (isActive) {
+          setUnreadMessagesCount(
+            response.conversations.reduce(
+              (total, conversation) => total + (conversation.unreadCount ?? 0),
+              0,
+            ),
+          )
+        }
+      } catch {
+        if (isActive) {
+          setUnreadMessagesCount(0)
+        }
+      }
+    }
+
+    void loadUnreadMessages()
+
+    const chatSocket = createChatSocket({ token })
+    chatSocket.on('conversation:updated', () => {
+      void loadUnreadMessages()
     })
 
     return () => {
       isActive = false
-      notificationSocket.disconnect()
+      chatSocket.disconnect()
     }
   }, [isAuthenticated, token])
 
@@ -117,13 +150,6 @@ export function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-1 lg:flex">
-          <NavLink to={paths.home} className={navLinkClass}>
-            <span className="flex items-center gap-2">
-              <Home size={17} />
-              Home
-            </span>
-          </NavLink>
-
           {publicNavigation
             .filter((item) => item.href !== paths.home)
             .map((item) => (
@@ -144,20 +170,6 @@ export function Navbar() {
               Admin
             </NavLink>
           ) : null}
-        </div>
-
-        <div className="hidden min-w-64 max-w-sm flex-1 px-6 xl:block">
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--theme-muted)]"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              placeholder="Search memories, providers..."
-              className="h-10 w-full rounded-lg border border-[var(--theme-border)] bg-[var(--theme-card)] pl-10 pr-4 text-sm text-[var(--theme-foreground)] outline-none transition placeholder:text-[var(--theme-muted)] focus:border-[var(--theme-primary)]"
-            />
-          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -189,11 +201,16 @@ export function Navbar() {
 
               <Link
                 to={paths.chats}
-                className="hidden h-10 w-10 items-center justify-center rounded-full bg-[var(--theme-card)] text-[var(--theme-foreground)] md:flex"
+                className="relative hidden h-10 w-10 items-center justify-center rounded-full bg-[var(--theme-card)] text-[var(--theme-foreground)] md:flex"
                 aria-label="Messages"
                 title="Messages"
               >
                 <MessageCircle size={18} />
+                {unreadMessagesCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--theme-primary)] px-1 text-[10px] font-bold text-white">
+                    {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                  </span>
+                )}
               </Link>
 
               <Link
@@ -276,7 +293,16 @@ export function Navbar() {
       {isMenuOpen && (
         <div className="border-t border-[var(--theme-border)] bg-[var(--theme-card)] px-4 py-4 lg:hidden">
           <div className="mx-auto grid max-w-7xl gap-2">
-            {[...publicNavigation, ...(isAuthenticated ? authLinks : [])].map((item) => (
+            {[
+              ...publicNavigation,
+              ...(isAuthenticated
+                ? [
+                    ...authLinks,
+                    { label: 'Messages', href: paths.chats },
+                    { label: 'Notifications', href: paths.notifications },
+                  ]
+                : []),
+            ].map((item) => (
               <NavLink
                 key={item.href}
                 to={item.href}
