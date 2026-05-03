@@ -1,24 +1,31 @@
 import {
   ArrowLeft,
+  ArrowRight,
+  Award,
   BarChart3,
   Bell,
   Bookmark,
   BriefcaseBusiness,
   Camera,
   Check,
+  CheckCircle,
   ChevronDown,
+  ChevronRight,
   Compass,
   Copy,
   ExternalLink,
   Flag,
+  Globe,
   Heart,
   Home,
   Image as ImageIcon,
   LogOut,
+  MapPin,
   Maximize2,
   MessageCircle,
   MoreHorizontal,
   Palette,
+  Play,
   Plus,
   Reply,
   Search,
@@ -27,10 +34,12 @@ import {
   ShieldCheck,
   Smile,
   Sparkles,
+  Star,
   Ticket,
   User,
   Users,
   Video,
+  Zap,
   X,
 } from 'lucide-react'
 import {
@@ -363,6 +372,115 @@ const themes: Array<{ key: ThemeKey; name: string }> = [
   { key: 'orange', name: 'Orange' },
 ]
 
+const landingCategories = [
+  { name: 'Photography', icon: Camera, count: 24 },
+  { name: 'Event Planning', icon: Sparkles, count: 18 },
+  { name: 'Catering', icon: Globe, count: 15 },
+  { name: 'Videography', icon: Play, count: 12 },
+  { name: 'Entertainment', icon: Zap, count: 9 },
+  { name: 'Decoration', icon: Award, count: 21 },
+]
+
+const landingStats = [
+  { label: 'Active users', value: '10K+', icon: Users },
+  { label: 'Services listed', value: '2,500+', icon: BriefcaseBusiness },
+  { label: 'Moments shared', value: '50K+', icon: Heart },
+  { label: 'Cities covered', value: '30+', icon: MapPin },
+]
+
+const landingSteps = [
+  {
+    step: '01',
+    title: 'Create your account',
+    description: 'Set up a personal or provider profile and start shaping your event plans.',
+    icon: CheckCircle,
+  },
+  {
+    step: '02',
+    title: 'Discover and save',
+    description: 'Search services, follow creators, and keep your favorite moments close.',
+    icon: Search,
+  },
+  {
+    step: '03',
+    title: 'Message providers',
+    description: 'Talk through dates, details, and packages without leaving Momento.',
+    icon: MessageCircle,
+  },
+  {
+    step: '04',
+    title: 'Share the result',
+    description: 'Post your memories and help the next person find trusted talent.',
+    icon: Star,
+  },
+]
+
+const landingTestimonials = [
+  {
+    name: 'Fatima Z.',
+    role: 'Bride',
+    avatar: 'FZ',
+    text: 'Momento helped me find a photographer whose style actually matched the wedding I imagined.',
+  },
+  {
+    name: 'Omar H.',
+    role: 'Event organizer',
+    avatar: 'OH',
+    text: 'The service discovery feels calm and direct. I can compare providers without losing the moodboard.',
+  },
+  {
+    name: 'Nadia K.',
+    role: 'Provider',
+    avatar: 'NK',
+    text: 'It gives my work a place to live beyond a single post, and clients can message me right away.',
+  },
+  {
+    name: 'Salma B.',
+    role: 'Birthday host',
+    avatar: 'SB',
+    text: 'I started with one saved decor post and ended up finding the makeup artist and photographer in the same afternoon.',
+  },
+  {
+    name: 'Youssef A.',
+    role: 'Photographer',
+    avatar: 'YA',
+    text: 'The best part is that clients arrive with references already saved, so the conversation starts with taste, not confusion.',
+  },
+  {
+    name: 'Meriem L.',
+    role: 'Planner',
+    avatar: 'ML',
+    text: 'It feels polished without being noisy. I can move from inspiration to actual providers without opening five different apps.',
+  },
+]
+
+const footerSections = [
+  {
+    title: 'Platform',
+    links: [
+      { label: 'Feed', to: '/home' },
+      { label: 'Services', to: '/explore' },
+      { label: 'Messages', to: '/messages' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'About', to: '/about' },
+      { label: 'FAQ', to: '/faq' },
+      { label: 'Contact', to: '/contact' },
+      { label: 'Support', to: '/support' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'Privacy', to: '/privacy' },
+      { label: 'Terms', to: '/terms' },
+    ],
+  },
+]
+
 function mapApiUser(user: ApiUser, requestedRole?: Role): AppUser {
   const isApprovedProvider = user.role === 'PROVIDER'
 
@@ -407,6 +525,41 @@ function Avatar({ user, size = 'md' }: { user: AppUser; size?: 'sm' | 'md' | 'lg
 }
 
 function LandingPage() {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeTestimonial, setActiveTestimonial] = useState(0)
+  const navigate = useNavigate()
+  const featuredServices = services.concat([
+    {
+      id: 's-3',
+      provider: users[1],
+      title: 'Warm Minimal Event Decor',
+      category: 'Events',
+      subcategory: 'Decoration',
+      keywords: ['minimal', 'florals', 'candles'],
+      description: 'A refined setup for intimate dinners, engagements, and birthdays.',
+      rating: 4.9,
+      saved: false,
+      image: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=900&q=80',
+    },
+  ])
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (searchQuery.trim()) {
+      navigate('/explore')
+    }
+  }
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveTestimonial((current) => (current + 1) % landingTestimonials.length)
+    }, 4800)
+
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const currentTestimonial = landingTestimonials[activeTestimonial]
+
   return (
     <main className="landing-page">
       <nav className="landing-nav">
@@ -425,42 +578,286 @@ function LandingPage() {
       </nav>
 
       <section className="landing-hero">
-        <div className="landing-copy">
-          <p className="eyebrow">Social inspiration meets event services</p>
-          <h1>Plan moments from real memories and trusted providers.</h1>
+        <div className="landing-copy landing-copy-centered">
+          <h1>
+            Share your <span>Moments</span>, discover amazing <span>Services</span>
+          </h1>
           <p>
-            Momento is a private social marketplace for discovering event ideas, saving posts,
-            talking to providers, and building a celebration from inspiration to booking.
+            Connect with top-rated photographers, planners, decorators, and creatives.
+            Save inspiration, message providers, and turn real memories into your next event.
           </p>
+          <form className="landing-search" onSubmit={submitSearch}>
+            <Search size={20} />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search services... wedding photography, catering, decor"
+            />
+            <button type="submit">Search</button>
+          </form>
+          <div className="popular-tags">
+            <span>Popular:</span>
+            {['Photography', 'Wedding', 'Catering', 'DJ', 'Decoration'].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => {
+                  setSearchQuery(tag)
+                  navigate('/explore')
+                }}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
           <div className="hero-actions">
             <Link to="/register" className="primary-button">
-              Create account
+              Create free account <ArrowRight size={17} />
             </Link>
             <Link to="/login" className="secondary-button">
-              I already have one
+              Already have an account?
             </Link>
-          </div>
-        </div>
-
-        <div className="landing-preview" aria-label="Momento preview">
-          <img
-            src="https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=900&q=80"
-            alt="Event decor preview"
-          />
-          <div className="preview-card">
-            <div className="preview-row">
-              <Avatar user={users[1]} size="sm" />
-              <div>
-                <strong>Nora Studio</strong>
-                <span>Approved provider</span>
-              </div>
-              <ProviderBadge compact />
-            </div>
-            <p>Soft ivory wedding setup with candles, florals, and a calm palette.</p>
           </div>
         </div>
       </section>
+
+      <section className="stats-band">
+        {landingStats.map((stat) => (
+          <article key={stat.label}>
+            <span>
+              <stat.icon size={20} />
+            </span>
+            <strong>{stat.value}</strong>
+            <small>{stat.label}</small>
+          </article>
+        ))}
+      </section>
+
+      <LandingSection
+        eyebrow="Browse by category"
+        title="Find exactly what the moment needs"
+        action={<Link to="/explore">All categories <ChevronRight size={16} /></Link>}
+      >
+        <div className="landing-category-grid">
+          {landingCategories.map((category) => (
+            <button key={category.name} type="button" onClick={() => navigate('/explore')}>
+              <span>
+                <category.icon size={28} />
+              </span>
+              <strong>{category.name}</strong>
+              <small>{category.count} services</small>
+            </button>
+          ))}
+        </div>
+      </LandingSection>
+
+      <LandingSection
+        className="soft-section"
+        eyebrow="Trending now"
+        title="Featured services"
+        action={<Link to="/explore">View all <ArrowRight size={16} /></Link>}
+      >
+        <div className="landing-service-grid">
+          {featuredServices.map((service) => (
+            <article key={service.id} className="landing-service-card">
+              <img src={service.image} alt={service.title} />
+              <div>
+                <span>{service.category} / {service.subcategory}</span>
+                <h3>{service.title}</h3>
+                <p>{service.description}</p>
+                <small>{service.rating} rating</small>
+              </div>
+            </article>
+          ))}
+        </div>
+      </LandingSection>
+
+      <LandingSection eyebrow="How it works" title="Get started in four simple steps">
+        <div className="steps-grid">
+          {landingSteps.map((step) => (
+            <article key={step.step}>
+              <span className="step-icon">
+                <step.icon size={28} />
+                <i>{step.step}</i>
+              </span>
+              <h3>{step.title}</h3>
+              <p>{step.description}</p>
+            </article>
+          ))}
+        </div>
+      </LandingSection>
+
+      <LandingSection
+        className="soft-section"
+        eyebrow="Recent moments"
+        title="See what the community is sharing"
+        action={<Link to="/home">View feed <ArrowRight size={16} /></Link>}
+      >
+        <div className="moment-grid">
+          {postsSeed.map((post) => (
+            <article key={post.id} className="moment-card">
+              <img src={post.media[0]?.url} alt={post.caption} />
+              <div>
+                <Avatar user={post.author} size="sm" />
+                <span>{post.author.displayName}</span>
+              </div>
+              <p>{post.caption}</p>
+            </article>
+          ))}
+        </div>
+      </LandingSection>
+
+      <LandingSection eyebrow="Top providers" title="Trusted professionals ready to help">
+        <div className="provider-grid">
+          {users.map((user) => (
+            <article key={user.id}>
+              <Avatar user={user} size="lg" />
+              <strong>{user.displayName}</strong>
+              <span>@{user.username}</span>
+              {user.providerStatus === 'APPROVED' ? <ProviderBadge compact /> : null}
+            </article>
+          ))}
+        </div>
+      </LandingSection>
+
+      <LandingSection className="soft-section" title="What our community says">
+        <div className="testimonial-gallery" aria-live="polite">
+          <button
+            type="button"
+            className="testimonial-peek previous"
+            onClick={() =>
+              setActiveTestimonial((activeTestimonial - 1 + landingTestimonials.length) % landingTestimonials.length)
+            }
+          >
+            <span>{landingTestimonials[(activeTestimonial - 1 + landingTestimonials.length) % landingTestimonials.length].avatar}</span>
+            <strong>{landingTestimonials[(activeTestimonial - 1 + landingTestimonials.length) % landingTestimonials.length].name}</strong>
+          </button>
+          <article className="testimonial-feature" key={currentTestimonial.name}>
+            <div className="star-row">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star key={star} size={18} />
+              ))}
+            </div>
+            <p>"{currentTestimonial.text}"</p>
+            <div className="testimonial-author">
+              <span className="avatar avatar-md">{currentTestimonial.avatar}</span>
+              <span>
+                <strong>{currentTestimonial.name}</strong>
+                <small>{currentTestimonial.role}</small>
+              </span>
+            </div>
+          </article>
+          <button
+            type="button"
+            className="testimonial-peek next"
+            onClick={() => setActiveTestimonial((activeTestimonial + 1) % landingTestimonials.length)}
+          >
+            <span>{landingTestimonials[(activeTestimonial + 1) % landingTestimonials.length].avatar}</span>
+            <strong>{landingTestimonials[(activeTestimonial + 1) % landingTestimonials.length].name}</strong>
+          </button>
+          <div className="testimonial-dots">
+            {landingTestimonials.map((testimonial, index) => (
+              <button
+                key={testimonial.name}
+                type="button"
+                className={index === activeTestimonial ? 'active' : ''}
+                onClick={() => setActiveTestimonial(index)}
+                aria-label={`Show testimonial from ${testimonial.name}`}
+              />
+            ))}
+          </div>
+        </div>
+      </LandingSection>
+
+      <section className="provider-cta">
+        <div>
+          <h2>Are you a service provider?</h2>
+          <p>
+            Join Momento to showcase your work, meet new clients, and turn your creative services
+            into a profile people can trust.
+          </p>
+        </div>
+        <Link to="/register" className="secondary-button">
+          Start offering services <ArrowRight size={17} />
+        </Link>
+      </section>
+
+      <section className="final-cta">
+        <h2>
+          Ready to join <span>Momento</span>?
+        </h2>
+        <p>Create your account and start sharing moments, discovering services, and planning beautifully.</p>
+        <div>
+          <Link to="/register" className="primary-button">
+            Create free account <ArrowRight size={17} />
+          </Link>
+          <Link to="/login" className="secondary-button">
+            Log in
+          </Link>
+        </div>
+      </section>
+
+      <LandingFooter />
     </main>
+  )
+}
+
+function LandingSection({
+  eyebrow,
+  title,
+  action,
+  className = '',
+  children,
+}: {
+  eyebrow?: string
+  title: string
+  action?: ReactNode
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <section className={`landing-section ${className}`}>
+      <div className="section-title-row">
+        <div>
+          {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+          <h2>{title}</h2>
+        </div>
+        {action ? <div className="section-action">{action}</div> : null}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function LandingFooter() {
+  return (
+    <footer className="landing-footer">
+      <div className="footer-grid">
+        <div className="footer-brand">
+          <Link to="/" className="brand-lockup">
+            <span className="logo-mark">M</span>
+            <span>Momento</span>
+          </Link>
+          <p>
+            The social platform for memories, event inspiration, and trusted creative services.
+          </p>
+        </div>
+        {footerSections.map((section) => (
+          <div key={section.title} className="footer-column">
+            <h3>{section.title}</h3>
+            {section.links.map((link) => (
+              <Link key={link.to} to={link.to}>
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="footer-bottom">
+        <span>© {new Date().getFullYear()} Momento. All rights reserved.</span>
+        <span>Built for thoughtful celebrations and trusted local talent.</span>
+      </div>
+    </footer>
   )
 }
 
@@ -487,7 +884,13 @@ function LoginPage() {
   }
 
   return (
-    <AuthFrame title="Welcome back" subtitle="Log in to open your Momento workspace.">
+    <AuthFrame
+      title="Sign in"
+      subtitle="Welcome back. Let's revisit some memories."
+      image="https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80"
+      imageTitle="Welcome back to your moments."
+      imageText="Pick up the memories you started sharing and continue planning from the same place."
+    >
       <form className="auth-form" onSubmit={handleSubmit}>
         <label>
           Email
@@ -537,8 +940,12 @@ function RegisterPage() {
 
   return (
     <AuthFrame
-      title="Join Momento"
-      subtitle="Choose how you want to start. Providers can post like everyone else, but public services need approval."
+      title="Create your account"
+      subtitle="Start sharing, saving, and planning your next celebration in a few steps."
+      image="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1400&q=80"
+      imageTitle="Some moments deserve a home."
+      imageText="Join a community that celebrates memory, craft, and trusted creative services."
+      reverse
     >
       <div className="role-grid">
         <button
@@ -618,24 +1025,164 @@ function RegisterPage() {
 function AuthFrame({
   title,
   subtitle,
+  image,
+  imageTitle,
+  imageText,
+  reverse = false,
   children,
 }: {
   title: string
   subtitle: string
+  image: string
+  imageTitle: string
+  imageText: string
+  reverse?: boolean
   children: ReactNode
 }) {
   return (
-    <main className="auth-page">
-      <Link to="/" className="brand-lockup">
-        <span className="logo-mark">M</span>
-        <span>Momento</span>
-      </Link>
-      <section className="auth-card">
-        <p className="eyebrow">Private app access</p>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-        {children}
+    <main className={`auth-page ${reverse ? 'auth-page-reverse' : ''}`}>
+      <section className="auth-visual" aria-label={imageTitle}>
+        <img src={image} alt="" />
+        <div className="auth-visual-overlay" />
+        <div className="auth-visual-copy">
+          <h2>{imageTitle}</h2>
+          <p>{imageText}</p>
+        </div>
       </section>
+      <section className="auth-form-panel">
+        <div className="auth-card">
+          <Link to="/" className="brand-lockup">
+            <span className="logo-mark">M</span>
+            <span>Momento</span>
+          </Link>
+          <div className="auth-heading">
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+          </div>
+          {children}
+        </div>
+      </section>
+    </main>
+  )
+}
+
+function FooterInfoPage({
+  eyebrow,
+  title,
+  intro,
+  items,
+}: {
+  eyebrow: string
+  title: string
+  intro: string
+  items: Array<{ title: string; body: string }>
+}) {
+  return (
+    <main className="info-page">
+      <nav className="landing-nav">
+        <Link to="/" className="brand-lockup">
+          <span className="logo-mark">M</span>
+          <span>Momento</span>
+        </Link>
+        <div className="landing-actions">
+          <Link to="/login" className="text-link">
+            Log in
+          </Link>
+          <Link to="/register" className="primary-button">
+            Sign up
+          </Link>
+        </div>
+      </nav>
+      <section className="info-hero">
+        <p className="eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        <p>{intro}</p>
+      </section>
+      <section className="info-list">
+        {items.map((item) => (
+          <article key={item.title}>
+            <h2>{item.title}</h2>
+            <p>{item.body}</p>
+          </article>
+        ))}
+      </section>
+      <LandingFooter />
+    </main>
+  )
+}
+
+function ContactPage() {
+  return (
+    <main className="info-page">
+      <nav className="landing-nav">
+        <Link to="/" className="brand-lockup">
+          <span className="logo-mark">M</span>
+          <span>Momento</span>
+        </Link>
+        <div className="landing-actions">
+          <Link to="/login" className="text-link">
+            Log in
+          </Link>
+          <Link to="/register" className="primary-button">
+            Sign up
+          </Link>
+        </div>
+      </nav>
+      <section className="contact-layout">
+        <div className="contact-copy">
+          <p className="eyebrow">Contact us</p>
+          <h1>Tell us what you need help with</h1>
+          <p>
+            Send a note about support, provider onboarding, partnerships, or anything that would
+            make Momento easier to use.
+          </p>
+          <div className="contact-methods">
+            <article>
+              <MessageCircle size={20} />
+              <div>
+                <strong>Support</strong>
+                <span>For account, listing, or technical questions.</span>
+              </div>
+            </article>
+            <article>
+              <BriefcaseBusiness size={20} />
+              <div>
+                <strong>Providers</strong>
+                <span>For service profiles, approvals, and business setup.</span>
+              </div>
+            </article>
+          </div>
+        </div>
+        <form className="contact-form" onSubmit={(event) => event.preventDefault()}>
+          <div className="form-grid">
+            <label>
+              Name
+              <input placeholder="Your name" />
+            </label>
+            <label>
+              Email
+              <input type="email" placeholder="you@example.com" />
+            </label>
+          </div>
+          <label>
+            Topic
+            <select defaultValue="support">
+              <option value="support">Support</option>
+              <option value="provider">Provider help</option>
+              <option value="partnership">Partnership</option>
+              <option value="feedback">Feedback</option>
+            </select>
+          </label>
+          <label>
+            Message
+            <textarea placeholder="How can we help?" />
+          </label>
+          <button className="primary-button" type="submit">
+            Send message
+          </button>
+        </form>
+      </section>
+      <LandingFooter />
     </main>
   )
 }
@@ -652,8 +1199,6 @@ function AppShell({ children }: { children: ReactNode }) {
     openNotifications,
     openSwitchAccount,
     logout,
-    theme,
-    setTheme,
   } = useApp()
   const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
@@ -714,18 +1259,6 @@ function AppShell({ children }: { children: ReactNode }) {
               <button type="button" onClick={logout}>
                 <LogOut size={17} /> Log out
               </button>
-              <div className="theme-row">
-                {themes.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={`theme-dot theme-${item.key} ${theme === item.key ? 'active' : ''}`}
-                    onClick={() => setTheme(item.key)}
-                    title={item.name}
-                    aria-label={item.name}
-                  />
-                ))}
-              </div>
             </div>
           ) : null}
         </div>
@@ -1951,6 +2484,118 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/p/:postId" element={<LandingPage />} />
+          <Route
+            path="/about"
+            element={
+              <FooterInfoPage
+                eyebrow="About Momento"
+                title="A calmer way to plan and share celebrations"
+                intro="Momento brings social inspiration and local event services into one place, so people can save ideas, talk to providers, and share the memories that come after."
+                items={[
+                  {
+                    title: 'Designed around real moments',
+                    body: 'The platform keeps photos, posts, services, and conversations close together so planning feels connected instead of scattered.',
+                  },
+                  {
+                    title: 'Built for local creative work',
+                    body: 'Providers can show their style, earn trust, and meet clients who already understand the type of event they want to create.',
+                  },
+                ]}
+              />
+            }
+          />
+          <Route
+            path="/faq"
+            element={
+              <FooterInfoPage
+                eyebrow="FAQ"
+                title="Questions people usually ask"
+                intro="A quick guide to how accounts, provider profiles, and discovery work inside Momento."
+                items={[
+                  {
+                    title: 'Can I use Momento without being a provider?',
+                    body: 'Yes. Normal users can post moments, save inspiration, follow people, search services, and message providers.',
+                  },
+                  {
+                    title: 'How do provider services become visible?',
+                    body: 'Providers can create a profile first. Public service listings are designed to go through approval so the marketplace stays trustworthy.',
+                  },
+                  {
+                    title: 'Can I message providers directly?',
+                    body: 'Yes. Messaging is part of the core experience so event details, pricing, and availability can be discussed in context.',
+                  },
+                ]}
+              />
+            }
+          />
+          <Route
+            path="/contact"
+            element={<ContactPage />}
+          />
+          <Route
+            path="/support"
+            element={
+              <FooterInfoPage
+                eyebrow="Support"
+                title="Support that keeps the planning moving"
+                intro="Use support for technical issues, account questions, provider listing help, or reports that need review."
+                items={[
+                  {
+                    title: 'In-app tickets',
+                    body: 'Logged-in users can open a support ticket from the app menu and track issues by category and priority.',
+                  },
+                  {
+                    title: 'Provider assistance',
+                    body: 'Providers can ask for help with profile setup, service details, listing standards, and approval expectations.',
+                  },
+                  {
+                    title: 'Safety and reports',
+                    body: 'Reports and trust-related concerns should include enough context for the support team to review them clearly.',
+                  },
+                ]}
+              />
+            }
+          />
+          <Route
+            path="/privacy"
+            element={
+              <FooterInfoPage
+                eyebrow="Privacy"
+                title="Privacy principles"
+                intro="Momento should feel personal, so privacy choices need to be understandable and respectful."
+                items={[
+                  {
+                    title: 'Profile and content data',
+                    body: 'Your profile, posts, saved content, messages, and support requests should be used to provide the app experience and improve safety.',
+                  },
+                  {
+                    title: 'Provider discovery',
+                    body: 'Provider details are intended to help users evaluate services, contact professionals, and make informed event decisions.',
+                  },
+                ]}
+              />
+            }
+          />
+          <Route
+            path="/terms"
+            element={
+              <FooterInfoPage
+                eyebrow="Terms"
+                title="Community expectations"
+                intro="Momento works best when people share honestly, respect creative work, and use provider tools responsibly."
+                items={[
+                  {
+                    title: 'Respectful participation',
+                    body: 'Users should post content they have the right to share, communicate respectfully, and avoid misleading provider or event claims.',
+                  },
+                  {
+                    title: 'Responsible bookings',
+                    body: 'Service details, prices, and commitments should be confirmed clearly between users and providers before an event.',
+                  },
+                ]}
+              />
+            }
+          />
           <Route
             path="/home"
             element={
