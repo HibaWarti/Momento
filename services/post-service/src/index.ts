@@ -77,6 +77,42 @@ async function notifyAdmins(title: string, message: string) {
   )
 }
 
+const commentUserSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  username: true,
+  profilePicturePath: true,
+  role: true,
+  providerRequests: {
+    where: {
+      status: 'APPROVED',
+    },
+    select: {
+      status: true,
+    },
+  },
+} as const
+
+const commentInclude = {
+  user: {
+    select: commentUserSelect,
+  },
+  replies: {
+    where: {
+      status: 'VISIBLE',
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+    include: {
+      user: {
+        select: commentUserSelect,
+      },
+    },
+  },
+} as const
+
 app.use(helmet())
 app.use(
   cors({
@@ -148,9 +184,27 @@ app.post('/', authenticate, async (req: Request, res: Response) => {
             username: true,
             profilePicturePath: true,
             role: true,
+            providerRequests: {
+              where: {
+                status: 'APPROVED',
+              },
+              select: {
+                status: true,
+              },
+            },
           },
         },
         images: true,
+        comments: {
+          where: {
+            status: 'VISIBLE',
+            parentId: null,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          include: commentInclude,
+        },
         reactions: {
           select: {
             id: true,
@@ -202,9 +256,27 @@ app.get('/', async (_req: Request, res: Response) => {
             username: true,
             profilePicturePath: true,
             role: true,
+            providerRequests: {
+              where: {
+                status: 'APPROVED',
+              },
+              select: {
+                status: true,
+              },
+            },
           },
         },
         images: true,
+        comments: {
+          where: {
+            status: 'VISIBLE',
+            parentId: null,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          include: commentInclude,
+        },
         reactions: {
           select: {
             id: true,
@@ -260,6 +332,14 @@ app.get('/saved/me', authenticate, async (_req: Request, res: Response) => {
                 username: true,
                 profilePicturePath: true,
                 role: true,
+                providerRequests: {
+                  where: {
+                    status: 'APPROVED',
+                  },
+                  select: {
+                    status: true,
+                  },
+                },
               },
             },
             images: true,
@@ -440,6 +520,14 @@ app.patch('/:id', authenticate, async (req: Request, res: Response) => {
             username: true,
             profilePicturePath: true,
             role: true,
+            providerRequests: {
+              where: {
+                status: 'APPROVED',
+              },
+              select: {
+                status: true,
+              },
+            },
           },
         },
         images: true,
@@ -532,7 +620,7 @@ app.post('/:id/comments', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
     const postId = String(req.params.id)
-    const { content } = req.body
+    const { content, parentId } = req.body
 
     if (!content || !String(content).trim()) {
       return res.status(400).json({
@@ -566,24 +654,39 @@ app.post('/:id/comments', authenticate, async (req: Request, res: Response) => {
       })
     }
 
+    let rootParentId: string | null = null
+
+    if (parentId) {
+      const parentComment = await prisma.comment.findUnique({
+        where: {
+          id: String(parentId),
+        },
+        select: {
+          id: true,
+          postId: true,
+          parentId: true,
+          status: true,
+        },
+      })
+
+      if (!parentComment || parentComment.postId !== postId || parentComment.status !== 'VISIBLE') {
+        return res.status(404).json({
+          success: false,
+          message: 'Parent comment not found',
+        })
+      }
+
+      rootParentId = parentComment.parentId || parentComment.id
+    }
+
     const comment = await prisma.comment.create({
       data: {
         content: String(content).trim(),
         postId,
         userId: currentUser.id,
+        parentId: rootParentId,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            username: true,
-            profilePicturePath: true,
-            role: true,
-          },
-        },
-      },
+      include: commentInclude,
     })
 
     if (post.authorId !== currentUser.id) {
@@ -591,7 +694,7 @@ app.post('/:id/comments', authenticate, async (req: Request, res: Response) => {
         userId: post.authorId,
         type: 'COMMENT',
         title: 'New comment',
-        message: `${comment.user.firstName} ${comment.user.lastName} commented on your post.`,
+        message: `${comment.user.firstName} ${comment.user.lastName} ${rootParentId ? 'replied to a comment on' : 'commented on'} your post.`,
       })
     }
 
@@ -642,22 +745,12 @@ app.get('/:id/comments', async (req: Request, res: Response) => {
       where: {
         postId,
         status: 'VISIBLE',
+        parentId: null,
       },
       orderBy: {
         createdAt: 'desc',
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            username: true,
-            profilePicturePath: true,
-            role: true,
-          },
-        },
-      },
+      include: commentInclude,
     })
 
     return res.status(200).json({
@@ -669,6 +762,68 @@ app.get('/:id/comments', async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve comments',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/comments/:commentId', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const commentId = String(req.params.commentId)
+    const { content } = req.body
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Comment content is required',
+      })
+    }
+
+    const existingComment = await prisma.comment.findUnique({
+      where: {
+        id: commentId,
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+      },
+    })
+
+    if (!existingComment || existingComment.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      })
+    }
+
+    if (existingComment.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only edit your own comments',
+      })
+    }
+
+    const comment = await prisma.comment.update({
+      where: {
+        id: commentId,
+      },
+      data: {
+        content: String(content).trim(),
+      },
+      include: commentInclude,
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Comment updated successfully',
+      comment,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update comment',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
@@ -714,9 +869,12 @@ app.delete(
         })
       }
 
-      await prisma.comment.delete({
+      await prisma.comment.update({
         where: {
           id: commentId,
+        },
+        data: {
+          status: 'DELETED',
         },
       })
 
@@ -1085,28 +1243,26 @@ app.get('/:id', async (req: Request, res: Response) => {
             username: true,
             profilePicturePath: true,
             role: true,
+            providerRequests: {
+              where: {
+                status: 'APPROVED',
+              },
+              select: {
+                status: true,
+              },
+            },
           },
         },
         images: true,
         comments: {
           where: {
             status: 'VISIBLE',
+            parentId: null,
           },
           orderBy: {
             createdAt: 'desc',
           },
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              username: true,
-              profilePicturePath: true,
-              role: true,
-            },
-          },
-          },
+          include: commentInclude,
         },
         reactions: {
           select: {

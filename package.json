@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:frontend": "npm run dev --prefix frontend_V3",
     "dev:gateway": "npm run dev --prefix api-gateway",
     "dev:auth": "npm run dev --prefix services/auth-service",
     "dev:user": "npm run dev --prefix services/user-service",
@@ -17,7 +17,8 @@
     "dev:notification": "npm run dev --prefix services/notification-service",
     "dev:chat": "npm run dev --prefix services/chat-service",
     "dev:backend": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:post\" \"npm run dev:provider\" \"npm run dev:admin\" \"npm run dev:notification\" \"npm run dev:chat\"",
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\""
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "create:superadmin": "ts-node scripts/create-superadmin.ts"
   },
   "repository": {
     "type": "git",
@@ -32,6 +33,15 @@
   },
   "homepage": "https://github.com/HibaWarti/Momento#readme",
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3",
+    "@types/node": "^25.6.0",
+    "@types/bcryptjs": "^2.4.6"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "@prisma/adapter-pg": "^7.8.0"
   }
 }

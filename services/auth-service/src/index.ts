@@ -15,11 +15,23 @@ const app = express()
 
 const PORT = process.env.PORT || 3001
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const allowedOrigins = new Set([
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+])
 
 app.use(helmet())
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true)
+        return
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS`))
+    },
     credentials: true,
   }),
 )
@@ -55,7 +67,7 @@ app.get('/db-health', async (_req: Request, res: Response) => {
 
 app.post('/register', async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, username, email, password } = req.body
+    const { firstName, lastName, username, email, password, requestedRole } = req.body
 
     if (!firstName || !lastName || !username || !email || !password) {
       return res.status(400).json({
@@ -88,6 +100,7 @@ app.post('/register', async (req: Request, res: Response) => {
     }
 
     const hashedPassword = await hashPassword(password)
+    const role = requestedRole === 'PROVIDER' ? 'PROVIDER' : 'USER'
 
     const user = await prisma.user.create({
       data: {
@@ -96,6 +109,15 @@ app.post('/register', async (req: Request, res: Response) => {
         username: normalizedUsername,
         email: normalizedEmail,
         password: hashedPassword,
+        role,
+      },
+      include: {
+        providerProfile: true,
+        providerRequests: {
+          orderBy: {
+            submittedAt: 'desc',
+          },
+        },
       },
     })
 
@@ -136,6 +158,14 @@ app.post('/login', async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({
       where: {
         email: normalizedEmail,
+      },
+      include: {
+        providerProfile: true,
+        providerRequests: {
+          orderBy: {
+            submittedAt: 'desc',
+          },
+        },
       },
     })
 
@@ -183,11 +213,26 @@ app.post('/login', async (req: Request, res: Response) => {
   }
 })
 
-app.get('/me', authenticate, (_req: Request, res: Response) => {
+app.get('/me', authenticate, async (_req: Request, res: Response) => {
+  const currentUser = res.locals.user as { id: string }
+  const user = await prisma.user.findUnique({
+    where: {
+      id: currentUser.id,
+    },
+    include: {
+      providerProfile: true,
+      providerRequests: {
+        orderBy: {
+          submittedAt: 'desc',
+        },
+      },
+    },
+  })
+
   return res.status(200).json({
     success: true,
     message: 'Authenticated user retrieved successfully',
-    user: res.locals.user,
+    user: user ? sanitizeUser(user) : res.locals.user,
   })
 })
 

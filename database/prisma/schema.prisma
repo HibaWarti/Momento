@@ -147,6 +147,7 @@ model User {
   posts     Post[]
   comments  Comment[]
   reactions Reaction[]
+  commentReactions CommentReaction[]
 
   providerRequests ProviderRequest[] @relation("ProviderRequestOwner")
   reviewedRequests ProviderRequest[] @relation("ProviderRequestReviewer")
@@ -204,14 +205,20 @@ model Comment {
   status    CommentStatus @default(VISIBLE)
   postId    String
   userId    String
+  parentId  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
 
   reports        Report[]
   supportTickets SupportTicket[] @relation("TicketComment")
+  reactions      CommentReaction[]
+
+  @@index([parentId])
 }
 
 model Reaction {
@@ -295,6 +302,19 @@ model Service {
   reports         Report[]
   savedBy         SavedService[]
   supportTickets SupportTicket[] @relation("TicketService")
+}
+
+model CommentReaction {
+  id        String       @id @default(uuid())
+  type      ReactionType @default(LIKE)
+  commentId String
+  userId    String
+  createdAt DateTime     @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
 }
 
 model ServiceImage {

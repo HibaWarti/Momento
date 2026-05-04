@@ -198,10 +198,20 @@ app.post('/requests', authenticate, async (req: Request, res: Response) => {
       })
     }
 
-    if (currentUser.role === 'PROVIDER') {
+    const approvedProviderRequest = await prisma.providerRequest.findFirst({
+      where: {
+        userId: currentUser.id,
+        status: 'APPROVED',
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (approvedProviderRequest) {
       return res.status(400).json({
         success: false,
-        message: 'You are already a provider',
+        message: 'You are already a verified provider',
       })
     }
 
@@ -474,7 +484,11 @@ app.get('/me/services', authenticate, async (req: Request, res: Response) => {
         createdAt: 'desc',
       },
       include: {
-        images: true,
+        images: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
         _count: {
           select: {
             reviews: true,
@@ -499,8 +513,15 @@ app.get('/me/services', authenticate, async (req: Request, res: Response) => {
 
 app.post('/services', authenticate, async (req: Request, res: Response) => {
   try {
-    const currentUser = res.locals.user as { id: string }
+    const currentUser = res.locals.user as { id: string; role?: string }
     const { title, description, price, city, category, subcategory, keywords } = req.body
+
+    if (currentUser.role !== 'PROVIDER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Provider access required',
+      })
+    }
 
     if (!title || !description || !city || !category) {
       return res.status(400).json({
@@ -509,22 +530,63 @@ app.post('/services', authenticate, async (req: Request, res: Response) => {
       })
     }
 
-    const providerProfile = await prisma.providerProfile.findUnique({
+    const user = await prisma.user.findUnique({
+      where: {
+        id: currentUser.id,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        profilePicturePath: true,
+        bio: true,
+        role: true,
+        providerRequests: {
+          orderBy: {
+            submittedAt: 'desc',
+          },
+          select: {
+            professionalName: true,
+            professionalDescription: true,
+            phone: true,
+            city: true,
+            status: true,
+          },
+        },
+      },
+    })
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      })
+    }
+
+    const latestProviderRequest = user.providerRequests[0]
+    const providerProfile = await prisma.providerProfile.upsert({
       where: {
         userId: currentUser.id,
+      },
+      update: {},
+      create: {
+        userId: currentUser.id,
+        professionalName:
+          latestProviderRequest?.professionalName ||
+          `${user.firstName} ${user.lastName}`.trim(),
+        professionalDescription:
+          latestProviderRequest?.professionalDescription ||
+          user.bio ||
+          'Provider profile pending admin verification.',
+        phone: latestProviderRequest?.phone || 'Not provided',
+        city: latestProviderRequest?.city || String(city).trim(),
       },
       select: {
         id: true,
         providerStatus: true,
       },
     })
-
-    if (!providerProfile || providerProfile.providerStatus !== 'ACTIVE') {
-      return res.status(403).json({
-        success: false,
-        message: 'Active provider profile is required',
-      })
-    }
 
     const parsedPrice =
       price !== undefined && price !== null && String(price).trim() !== ''
@@ -562,11 +624,24 @@ app.post('/services', authenticate, async (req: Request, res: Response) => {
                 lastName: true,
                 username: true,
                 profilePicturePath: true,
+                role: true,
+                providerRequests: {
+                  where: {
+                    status: 'APPROVED',
+                  },
+                  select: {
+                    status: true,
+                  },
+                },
               },
             },
           },
         },
-        images: true,
+        images: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
         _count: {
           select: {
             reviews: true,
@@ -609,11 +684,24 @@ app.get('/services', async (_req: Request, res: Response) => {
                 username: true,
                 profilePicturePath: true,
                 bio: true,
+                role: true,
+                providerRequests: {
+                  where: {
+                    status: 'APPROVED',
+                  },
+                  select: {
+                    status: true,
+                  },
+                },
               },
             },
           },
         },
-        images: true,
+        images: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
         _count: {
           select: {
             reviews: true,
@@ -660,11 +748,24 @@ app.get('/services/saved/me', authenticate, async (_req: Request, res: Response)
                     username: true,
                     profilePicturePath: true,
                     bio: true,
+                    role: true,
+                    providerRequests: {
+                      where: {
+                        status: 'APPROVED',
+                      },
+                      select: {
+                        status: true,
+                      },
+                    },
                   },
                 },
               },
             },
-            images: true,
+            images: {
+              orderBy: {
+                createdAt: 'asc',
+              },
+            },
             _count: {
               select: {
                 reviews: true,
@@ -855,11 +956,24 @@ app.get('/services/:id', async (req: Request, res: Response) => {
                 username: true,
                 profilePicturePath: true,
                 bio: true,
+                role: true,
+                providerRequests: {
+                  where: {
+                    status: 'APPROVED',
+                  },
+                  select: {
+                    status: true,
+                  },
+                },
               },
             },
           },
         },
-        images: true,
+        images: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
         reviews: {
           where: {
             status: 'VISIBLE',
@@ -875,6 +989,15 @@ app.get('/services/:id', async (req: Request, res: Response) => {
                 lastName: true,
                 username: true,
                 profilePicturePath: true,
+                role: true,
+                providerRequests: {
+                  where: {
+                    status: 'APPROVED',
+                  },
+                  select: {
+                    status: true,
+                  },
+                },
               },
             },
           },
@@ -1030,7 +1153,11 @@ app.patch('/services/:id', authenticate, async (req: Request, res: Response) => 
             },
           },
         },
-        images: true,
+        images: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
         _count: {
           select: {
             reviews: true,
@@ -1633,6 +1760,88 @@ app.delete('/services/:id/images/:imageId', authenticate, async (req: Request, r
     return res.status(500).json({
       success: false,
       message: 'Failed to delete service image',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/services/:id/images/:imageId/cover', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const serviceId = String(req.params.id)
+    const imageId = String(req.params.imageId)
+
+    const service = await prisma.service.findUnique({
+      where: {
+        id: serviceId,
+      },
+      include: {
+        providerProfile: {
+          select: {
+            userId: true,
+          },
+        },
+        images: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+    })
+
+    if (!service || service.status === 'DELETED') {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found',
+      })
+    }
+
+    if (service.providerProfile.userId !== currentUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only change images on your own services',
+      })
+    }
+
+    const selectedImage = service.images.find((image) => image.id === imageId)
+
+    if (!selectedImage) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service image not found',
+      })
+    }
+
+    const earliestCreatedAt = service.images[0]?.createdAt ?? new Date()
+    const coverCreatedAt = new Date(earliestCreatedAt.getTime() - 1000)
+
+    await prisma.serviceImage.update({
+      where: {
+        id: imageId,
+      },
+      data: {
+        createdAt: coverCreatedAt,
+      },
+    })
+
+    const images = await prisma.serviceImage.findMany({
+      where: {
+        serviceId,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Main service picture updated successfully',
+      images,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update main service picture',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }

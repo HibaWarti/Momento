@@ -12,6 +12,11 @@ const app = express()
 
 const PORT = process.env.PORT || 3000
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const allowedOrigins = new Set([
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+])
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001'
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3002'
 const POST_SERVICE_URL = process.env.POST_SERVICE_URL || 'http://localhost:3003'
@@ -23,7 +28,14 @@ const CHAT_SERVICE_URL = process.env.CHAT_SERVICE_URL || 'http://localhost:3007'
 app.use(helmet())
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true)
+        return
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS`))
+    },
     credentials: true,
   }),
 )
