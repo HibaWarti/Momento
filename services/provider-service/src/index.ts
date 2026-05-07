@@ -13,6 +13,13 @@ const app = express()
 
 const PORT = process.env.PORT || 3004
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const allowedOrigins = new Set([
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+])
 const NOTIFICATION_SERVICE_URL =
   process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006'
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || 'change_this_internal_secret'
@@ -95,7 +102,10 @@ function normalizeKeywords(value: unknown): string[] {
 app.use(helmet())
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) return callback(null, true)
+      return callback(new Error(`Origin ${origin} is not allowed by CORS`))
+    },
     credentials: true,
   }),
 )

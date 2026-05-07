@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import crypto from 'crypto'
 import { prisma } from './prisma'
 import { authenticate } from './middleware/auth.middleware'
 import { postImageUpload } from './utils/upload'
@@ -13,6 +14,13 @@ const app = express()
 
 const PORT = process.env.PORT || 3003
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const allowedOrigins = new Set([
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+])
 const NOTIFICATION_SERVICE_URL =
   process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006'
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || 'change_this_internal_secret'
@@ -113,10 +121,51 @@ const commentInclude = {
   },
 } as const
 
+type CommentWithReplies = {
+  id: string
+  reactions?: Array<{ id: string; type: string; userId: string; commentId: string; createdAt: Date }>
+  replies?: CommentWithReplies[]
+}
+
+function collectCommentIds(comments: CommentWithReplies[] = []): string[] {
+  return comments.flatMap((comment) => [comment.id, ...collectCommentIds(comment.replies ?? [])])
+}
+
+async function attachCommentReactionsToComments<T extends CommentWithReplies[]>(comments: T): Promise<T> {
+  const ids = collectCommentIds(comments)
+  if (!ids.length) return comments
+
+  const reactions = await prisma.$queryRawUnsafe<Array<{ id: string; type: string; userId: string; commentId: string; createdAt: Date }>>(
+    'SELECT id, type, "userId", "commentId", "createdAt" FROM "CommentReaction" WHERE "commentId" = ANY($1)',
+    ids,
+  )
+  const reactionsByComment = new Map<string, typeof reactions>()
+  reactions.forEach((reaction) => {
+    reactionsByComment.set(reaction.commentId, [...(reactionsByComment.get(reaction.commentId) ?? []), reaction])
+  })
+
+  const apply = (items: CommentWithReplies[]) => {
+    items.forEach((comment) => {
+      comment.reactions = reactionsByComment.get(comment.id) ?? []
+      apply(comment.replies ?? [])
+    })
+  }
+  apply(comments)
+  return comments
+}
+
+async function attachCommentReactionsToPosts<T extends { comments?: CommentWithReplies[] }>(posts: T[]): Promise<T[]> {
+  await attachCommentReactionsToComments(posts.flatMap((post) => post.comments ?? []))
+  return posts
+}
+
 app.use(helmet())
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) return callback(null, true)
+      return callback(new Error(`Origin ${origin} is not allowed by CORS`))
+    },
     credentials: true,
   }),
 )
@@ -224,10 +273,12 @@ app.post('/', authenticate, async (req: Request, res: Response) => {
       },
     })
 
+    const [postWithCommentReactions] = await attachCommentReactionsToPosts([post])
+
     return res.status(201).json({
       success: true,
       message: 'Post created successfully',
-      post,
+      post: postWithCommentReactions,
     })
   } catch (error) {
     return res.status(500).json({
@@ -296,10 +347,12 @@ app.get('/', async (_req: Request, res: Response) => {
       },
     })
 
+    const postsWithCommentReactions = await attachCommentReactionsToPosts(posts)
+
     return res.status(200).json({
       success: true,
       message: 'Posts retrieved successfully',
-      posts,
+      posts: postsWithCommentReactions,
     })
   } catch (error) {
     return res.status(500).json({
@@ -981,6 +1034,102 @@ app.post('/comments/:commentId/reports', authenticate, async (req: Request, res:
   }
 })
 
+app.post('/comments/:commentId/reactions', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const commentId = String(req.params.commentId)
+    const { type } = req.body
+    const reactionType = String(type || 'LIKE').trim().toUpperCase()
+
+    if (!['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY'].includes(reactionType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid reaction type',
+      })
+    }
+
+    const comment = await prisma.comment.findUnique({
+      where: {
+        id: commentId,
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        post: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    })
+
+    if (!comment || comment.status !== 'VISIBLE' || comment.post.status !== 'ACTIVE') {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      })
+    }
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "CommentReaction" ("id", "type", "commentId", "userId", "createdAt")
+       VALUES ($1, $2::"ReactionType", $3, $4, CURRENT_TIMESTAMP)
+       ON CONFLICT ("commentId", "userId") DO UPDATE SET "type" = EXCLUDED."type"`,
+      crypto.randomUUID(),
+      reactionType,
+      commentId,
+      currentUser.id,
+    )
+
+    const [reaction] = await prisma.$queryRawUnsafe<Array<{ id: string; type: string; userId: string; commentId: string; createdAt: Date }>>(
+      'SELECT id, type, "userId", "commentId", "createdAt" FROM "CommentReaction" WHERE "commentId" = $1 AND "userId" = $2',
+      commentId,
+      currentUser.id,
+    )
+
+    if (comment.userId !== currentUser.id) {
+      await createNotification({
+        userId: comment.userId,
+        type: 'LIKE',
+        title: 'Comment like',
+        message: 'Someone liked your comment.',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Comment reaction saved successfully',
+      reaction,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save comment reaction',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.delete('/comments/:commentId/reactions', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const commentId = String(req.params.commentId)
+
+    await prisma.$executeRawUnsafe('DELETE FROM "CommentReaction" WHERE "commentId" = $1 AND "userId" = $2', commentId, currentUser.id)
+
+    return res.status(200).json({
+      success: true,
+      message: 'Comment reaction removed successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to remove comment reaction',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
 app.post('/:id/reactions', authenticate, async (req: Request, res: Response) => {
   try {
     const currentUser = res.locals.user as { id: string }
@@ -1296,10 +1445,12 @@ app.get('/:id', async (req: Request, res: Response) => {
       })
     }
 
+    const [postWithCommentReactions] = await attachCommentReactionsToPosts([post])
+
     return res.status(200).json({
       success: true,
       message: 'Post details retrieved successfully',
-      post,
+      post: postWithCommentReactions,
     })
   } catch (error) {
     return res.status(500).json({

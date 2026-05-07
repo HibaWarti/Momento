@@ -15,10 +15,17 @@ const app = express()
 
 const PORT = process.env.PORT || 3007
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const allowedOrigins = [
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+]
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: allowedOrigins,
     credentials: true,
   },
 })
@@ -310,7 +317,7 @@ io.on('connection', (socket: Socket) => {
 app.use(helmet())
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: allowedOrigins,
     credentials: true,
   }),
 )

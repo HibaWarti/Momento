@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 import { authenticate } from './middleware/auth.middleware'
 import { requireAdmin, requireSuperAdmin } from './middleware/role.middleware'
@@ -13,6 +14,13 @@ const app = express()
 
 const PORT = process.env.PORT || 3005
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const allowedOrigins = new Set([
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+])
 const NOTIFICATION_SERVICE_URL =
   process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006'
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || 'change_this_internal_secret'
@@ -71,7 +79,10 @@ function normalizeEnumValue<T extends readonly string[]>(
 app.use(helmet())
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) return callback(null, true)
+      return callback(new Error(`Origin ${origin} is not allowed by CORS`))
+    },
     credentials: true,
   }),
 )
@@ -123,7 +134,7 @@ app.get('/superadmin/auth-check', authenticate, requireSuperAdmin, (_req: Reques
 
 app.get('/users', authenticate, requireAdmin, async (_req: Request, res: Response) => {
   try {
-    const users = await prisma.user.findMany({
+    const usersBase = await prisma.user.findMany({
       orderBy: {
         createdAt: 'desc',
       },
@@ -144,10 +155,27 @@ app.get('/users', authenticate, requireAdmin, async (_req: Request, res: Respons
             followers: true,
             following: true,
             providerRequests: true,
+            reportsAgainstUser: true,
           },
         },
       },
     })
+
+    const users = await Promise.all(
+      usersBase.map(async (user) => {
+        const reportsTotal = await prisma.report.count({
+          where: {
+            OR: [
+              { reportedUserId: user.id },
+              { post: { authorId: user.id } },
+              { comment: { userId: user.id } },
+              { service: { providerProfile: { userId: user.id } } },
+            ],
+          },
+        })
+        return { ...user, reportsTotal }
+      }),
+    )
 
     return res.status(200).json({
       success: true,
@@ -183,13 +211,19 @@ app.get('/users/:id', authenticate, requireAdmin, async (req: Request, res: Resp
         accountStatus: true,
         createdAt: true,
         providerProfile: true,
-        providerRequests: true,
+        providerRequests: {
+          orderBy: {
+            submittedAt: 'desc',
+          },
+          take: 5,
+        },
         _count: {
           select: {
             posts: true,
             followers: true,
             following: true,
             providerRequests: true,
+            reportsAgainstUser: true,
           },
         },
       },
@@ -202,10 +236,21 @@ app.get('/users/:id', authenticate, requireAdmin, async (req: Request, res: Resp
       })
     }
 
+    const reportsTotal = await prisma.report.count({
+      where: {
+        OR: [
+          { reportedUserId: user.id },
+          { post: { authorId: user.id } },
+          { comment: { userId: user.id } },
+          { service: { providerProfile: { userId: user.id } } },
+        ],
+      },
+    })
+
     return res.status(200).json({
       success: true,
       message: 'User retrieved successfully',
-      user,
+      user: { ...user, reportsTotal },
     })
   } catch (error) {
     return res.status(500).json({
@@ -288,6 +333,7 @@ app.patch('/users/:id/block', authenticate, requireAdmin, async (req: Request, r
 
 app.patch('/users/:id/unblock', authenticate, requireAdmin, async (req: Request, res: Response) => {
   try {
+    const currentUser = res.locals.user as { id: string; role: string }
     const userId = String(req.params.id)
 
     const updatedUser = await prisma.user.update({
@@ -573,6 +619,16 @@ app.patch('/provider-requests/:id/approve', authenticate, requireAdmin, async (r
       return { updatedRequest, updatedUser, providerProfile }
     })
 
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'PROVIDER_REQUEST_APPROVED',
+        entityType: 'PROVIDER_REQUEST',
+        entityId: requestId,
+        description: 'Provider request approved by admin',
+      },
+    })
+
     await createNotification({
       userId: providerRequest.userId,
       type: 'PROVIDER_REQUEST_APPROVED',
@@ -637,11 +693,31 @@ app.patch('/provider-requests/:id/reject', authenticate, requireAdmin, async (re
       },
     })
 
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'PROVIDER_REQUEST_SUBMITTED',
+        entityType: 'PROVIDER_REQUEST',
+        entityId: requestId,
+        description: 'Provider request marked as REVIEWING by admin',
+      },
+    })
+
     await createNotification({
       userId: providerRequest.userId,
       type: 'PROVIDER_REQUEST_REJECTED',
       title: 'Provider request rejected',
       message: 'Your provider request was rejected. You can review your information and try again later.',
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'PROVIDER_REQUEST_REJECTED',
+        entityType: 'PROVIDER_REQUEST',
+        entityId: requestId,
+        description: 'Provider request rejected by admin',
+      },
     })
 
     return res.status(200).json({
@@ -854,6 +930,7 @@ app.patch('/reports/:id/resolve', authenticate, requireAdmin, async (req: Reques
     const currentUser = res.locals.user as { id: string }
     const reportId = String(req.params.id)
     const { moderationNote, actionTaken } = req.body
+    const action = actionTaken ? String(actionTaken).trim() : 'NO_ACTION'
 
     const report = await prisma.report.findUnique({
       where: {
@@ -862,6 +939,29 @@ app.patch('/reports/:id/resolve', authenticate, requireAdmin, async (req: Reques
       select: {
         id: true,
         reporterId: true,
+        reportedUserId: true,
+        postId: true,
+        commentId: true,
+        serviceId: true,
+        post: {
+          select: {
+            authorId: true,
+          },
+        },
+        comment: {
+          select: {
+            userId: true,
+          },
+        },
+        service: {
+          select: {
+            providerProfile: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -872,23 +972,41 @@ app.patch('/reports/:id/resolve', authenticate, requireAdmin, async (req: Reques
       })
     }
 
-    const updatedReport = await prisma.report.update({
-      where: {
-        id: reportId,
-      },
-      data: {
-        status: 'RESOLVED',
-        moderationNote:
-          moderationNote !== undefined && moderationNote !== null
-            ? String(moderationNote).trim()
-            : undefined,
-        actionTaken:
-          actionTaken !== undefined && actionTaken !== null
-            ? String(actionTaken).trim()
-            : undefined,
-        reviewedAt: new Date(),
-        reviewedById: currentUser.id,
-      },
+    const updatedReport = await prisma.$transaction(async (tx) => {
+      if (action === 'HIDE_POST' && report.postId) {
+        await tx.post.update({ where: { id: report.postId }, data: { status: 'HIDDEN' } })
+      }
+
+      if (action === 'DELETE_COMMENT' && report.commentId) {
+        await tx.comment.update({ where: { id: report.commentId }, data: { status: 'DELETED' } })
+      }
+
+      if (action === 'HIDE_SERVICE' && report.serviceId) {
+        await tx.service.update({ where: { id: report.serviceId }, data: { status: 'HIDDEN' } })
+      }
+
+      if (action === 'BAN_USER') {
+        const targetUserId = report.reportedUserId || report.post?.authorId || report.comment?.userId || report.service?.providerProfile.userId
+        if (targetUserId && targetUserId !== currentUser.id) {
+          await tx.user.update({ where: { id: targetUserId }, data: { accountStatus: 'BLOCKED' } })
+        }
+      }
+
+      return tx.report.update({
+        where: {
+          id: reportId,
+        },
+        data: {
+          status: 'RESOLVED',
+          moderationNote:
+            moderationNote !== undefined && moderationNote !== null
+              ? String(moderationNote).trim()
+              : undefined,
+          actionTaken: action,
+          reviewedAt: new Date(),
+          reviewedById: currentUser.id,
+        },
+      })
     })
 
     await prisma.log.create({
@@ -907,6 +1025,16 @@ app.patch('/reports/:id/resolve', authenticate, requireAdmin, async (req: Reques
       title: 'Report resolved',
       message: 'Your report was reviewed and marked as resolved.',
     })
+
+    const warnedUserId = report.reportedUserId || report.post?.authorId || report.comment?.userId || report.service?.providerProfile.userId
+    if (warnedUserId && ['WARN_USER', 'HIDE_POST', 'DELETE_COMMENT', 'HIDE_SERVICE'].includes(action)) {
+      await createNotification({
+        userId: warnedUserId,
+        type: 'SYSTEM',
+        title: 'Moderation notice',
+        message: moderationNote ? String(moderationNote).trim() : 'A moderator reviewed content connected to your account.',
+      })
+    }
 
     return res.status(200).json({
       success: true,
@@ -970,7 +1098,7 @@ app.patch('/reports/:id/reject', authenticate, requireAdmin, async (req: Request
         action: 'REPORT_REVIEWED',
         entityType: 'REPORT',
         entityId: reportId,
-        description: 'Report rejected',
+        description: 'Report resolved',
       },
     })
 
@@ -990,6 +1118,249 @@ app.patch('/reports/:id/reject', authenticate, requireAdmin, async (req: Request
     return res.status(500).json({
       success: false,
       message: 'Failed to reject report',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.patch('/superadmin/users/:id/role', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const userId = String(req.params.id)
+    const nextRole = String(req.body?.role || '').trim().toUpperCase()
+
+    if (!['USER', 'PROVIDER', 'ADMIN', 'SUPERADMIN'].includes(nextRole)) {
+      return res.status(400).json({ success: false, message: 'Invalid role' })
+    }
+
+    if (currentUser.id === userId) {
+      return res.status(400).json({ success: false, message: 'You cannot change your own role' })
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    })
+
+    if (!existingUser) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { role: nextRole as any },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        role: true,
+        accountStatus: true,
+      },
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'USER_UNBLOCKED',
+        entityType: 'USER',
+        entityId: userId,
+        description: `Role changed from ${existingUser.role} to ${nextRole}`,
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'User role updated successfully',
+      user: updatedUser,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update user role',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.post('/superadmin/users', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const { firstName, lastName, username, email, password, role } = req.body
+    const nextRole = String(role || 'USER').trim().toUpperCase()
+
+    if (!firstName || !lastName || !username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'firstName, lastName, username, email and password are required',
+      })
+    }
+
+    if (!['USER', 'ADMIN'].includes(nextRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only USER and ADMIN roles are allowed in this endpoint',
+      })
+    }
+
+    const exists = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: String(email).trim().toLowerCase() },
+          { username: String(username).trim() },
+        ],
+      },
+      select: { id: true },
+    })
+
+    if (exists) {
+      return res.status(409).json({
+        success: false,
+        message: 'Email or username already exists',
+      })
+    }
+
+    const hashedPassword = await bcrypt.hash(String(password), 10)
+    const createdUser = await prisma.user.create({
+      data: {
+        firstName: String(firstName).trim(),
+        lastName: String(lastName).trim(),
+        username: String(username).trim(),
+        email: String(email).trim().toLowerCase(),
+        password: hashedPassword,
+        role: nextRole as any,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        role: true,
+        accountStatus: true,
+        createdAt: true,
+      },
+    })
+
+    return res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      user: createdUser,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create user',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.post('/superadmin/admins', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const userId = String(req.body?.userId || '').trim()
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User id is required' })
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    })
+
+    if (!existingUser) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+
+    if (existingUser.role === 'SUPERADMIN') {
+      return res.status(400).json({ success: false, message: 'Cannot modify superadmin role from this endpoint' })
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { role: 'ADMIN' },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        role: true,
+        accountStatus: true,
+      },
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'USER_UNBLOCKED',
+        entityType: 'USER',
+        entityId: userId,
+        description: 'User promoted to ADMIN by superadmin',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Admin created successfully',
+      user: updatedUser,
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create admin',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
+})
+
+app.delete('/superadmin/users/:id', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const currentUser = res.locals.user as { id: string }
+    const userId = String(req.params.id)
+
+    if (currentUser.id === userId) {
+      return res.status(400).json({ success: false, message: 'You cannot delete your own account' })
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    })
+
+    if (!existingUser) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+
+    if (existingUser.role === 'SUPERADMIN') {
+      return res.status(403).json({ success: false, message: 'Cannot delete another superadmin' })
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { accountStatus: 'DELETED' },
+    })
+
+    await prisma.log.create({
+      data: {
+        actorId: currentUser.id,
+        action: 'USER_BLOCKED',
+        entityType: 'USER',
+        entityId: userId,
+        description: 'User account marked as DELETED by superadmin',
+      },
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'User deleted successfully',
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete user',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
@@ -1877,6 +2248,7 @@ app.get('/logs', authenticate, requireAdmin, async (req: Request, res: Response)
             username: true,
             email: true,
             profilePicturePath: true,
+            role: true,
           },
         },
       },
@@ -1914,6 +2286,7 @@ app.get('/superadmin/logs', authenticate, requireSuperAdmin, async (req: Request
             username: true,
             email: true,
             profilePicturePath: true,
+            role: true,
           },
         },
       },
@@ -2051,6 +2424,70 @@ app.get('/superadmin/stats', authenticate, requireSuperAdmin, async (_req: Reque
       message: 'Failed to retrieve super admin stats',
       error: error instanceof Error ? error.message : 'Unknown error',
     })
+  }
+})
+
+app.get('/superadmin/categories', authenticate, requireSuperAdmin, async (_req: Request, res: Response) => {
+  try {
+    const services = await prisma.service.findMany({
+      where: { status: { not: 'DELETED' } },
+      select: { category: true, subcategory: true },
+    })
+    const grouped = new Map<string, Set<string>>()
+    for (const service of services) {
+      const cat = String(service.category || '').trim()
+      if (!cat) continue
+      if (!grouped.has(cat)) grouped.set(cat, new Set<string>())
+      if (service.subcategory && String(service.subcategory).trim()) grouped.get(cat)?.add(String(service.subcategory).trim())
+    }
+    const categories = [...grouped.entries()].map(([category, subs]) => ({ category, subcategories: [...subs] }))
+    return res.status(200).json({ success: true, categories })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to load categories', error: error instanceof Error ? error.message : 'Unknown error' })
+  }
+})
+
+app.post('/superadmin/categories', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const { category, subcategory } = req.body
+    if (!category || !String(category).trim()) return res.status(400).json({ success: false, message: 'Category is required' })
+    if (subcategory && String(subcategory).trim()) {
+      await prisma.service.updateMany({
+        where: { category: String(category).trim(), subcategory: null },
+        data: { subcategory: String(subcategory).trim() },
+      })
+    }
+    return res.status(200).json({ success: true, message: 'Category operation completed' })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to create category', error: error instanceof Error ? error.message : 'Unknown error' })
+  }
+})
+
+app.patch('/superadmin/categories', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const { category, subcategory, nextCategory, nextSubcategory } = req.body
+    if (!category || !nextCategory) return res.status(400).json({ success: false, message: 'category and nextCategory are required' })
+    await prisma.service.updateMany({
+      where: { category: String(category).trim(), ...(subcategory !== undefined ? { subcategory: subcategory ? String(subcategory).trim() : null } : {}) },
+      data: { category: String(nextCategory).trim(), ...(nextSubcategory !== undefined ? { subcategory: nextSubcategory ? String(nextSubcategory).trim() : null } : {}) },
+    })
+    return res.status(200).json({ success: true, message: 'Category updated' })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to update category', error: error instanceof Error ? error.message : 'Unknown error' })
+  }
+})
+
+app.delete('/superadmin/categories', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const { category, subcategory } = req.body
+    if (!category) return res.status(400).json({ success: false, message: 'category is required' })
+    await prisma.service.updateMany({
+      where: { category: String(category).trim(), ...(subcategory !== undefined ? { subcategory: subcategory ? String(subcategory).trim() : null } : {}) },
+      data: { status: 'HIDDEN' },
+    })
+    return res.status(200).json({ success: true, message: 'Category deleted (services hidden)' })
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to delete category', error: error instanceof Error ? error.message : 'Unknown error' })
   }
 })
 
