@@ -1,0 +1,197 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: momento-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: momento
+    ports:
+      - "5433:5432"
+    volumes:
+      - momento_postgres_data:/var/lib/postgresql/data
+    networks:
+      - momento-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: momento-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@momento.ma
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - momento-network
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: momento-auth-service
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/momento?schema=public
+      JWT_SECRET: momento_secret_key
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+    networks:
+      - momento-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: momento-user-service
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/momento?schema=public
+      JWT_SECRET: momento_secret_key
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+    networks:
+      - momento-network
+
+  post-service:
+    build:
+      context: .
+      dockerfile: services/post-service/Dockerfile
+    container_name: momento-post-service
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/momento?schema=public
+      JWT_SECRET: momento_secret_key
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+    networks:
+      - momento-network
+
+  provider-service:
+    build:
+      context: .
+      dockerfile: services/provider-service/Dockerfile
+    container_name: momento-provider-service
+    restart: unless-stopped
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/momento?schema=public
+      JWT_SECRET: momento_secret_key
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3004:3004"
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+    networks:
+      - momento-network
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: services/admin-service/Dockerfile
+    container_name: momento-admin-service
+    restart: unless-stopped
+    environment:
+      PORT: 3005
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/momento?schema=public
+      JWT_SECRET: momento_secret_key
+      FRONTEND_URL: http://localhost:5173
+      ADMIN_FRONTEND_URL: http://localhost:5174
+    ports:
+      - "3005:3005"
+    depends_on:
+      - postgres
+    networks:
+      - momento-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: momento-notification-service
+    restart: unless-stopped
+    environment:
+      PORT: 3006
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/momento?schema=public
+      JWT_SECRET: momento_secret_key
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3006:3006"
+    depends_on:
+      - postgres
+    networks:
+      - momento-network
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: services/chat-service/Dockerfile
+    container_name: momento-chat-service
+    restart: unless-stopped
+    environment:
+      PORT: 3007
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/momento?schema=public
+      JWT_SECRET: momento_secret_key
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3007:3007"
+    depends_on:
+      - postgres
+    networks:
+      - momento-network
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: momento-api-gateway
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      FRONTEND_URL: http://localhost:5173
+      ADMIN_FRONTEND_URL: http://localhost:5174
+      AUTH_SERVICE_URL: http://auth-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      POST_SERVICE_URL: http://post-service:3003
+      PROVIDER_SERVICE_URL: http://provider-service:3004
+      ADMIN_SERVICE_URL: http://admin-service:3005
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      CHAT_SERVICE_URL: http://chat-service:3007
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - user-service
+      - post-service
+      - provider-service
+      - admin-service
+      - notification-service
+      - chat-service
+    networks:
+      - momento-network
+
+volumes:
+  momento_postgres_data:
+
+networks:
+  momento-network:
+    driver: bridge
