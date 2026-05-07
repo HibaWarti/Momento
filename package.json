@@ -7,7 +7,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev:frontend": "npm run dev --prefix frontend_V3",
+    "dev:user-frontend": "npm run dev --prefix user-frontend",
+    "dev:admin-frontend": "npm run dev --prefix admin-frontend",
     "dev:gateway": "npm run dev --prefix api-gateway",
     "dev:auth": "npm run dev --prefix services/auth-service",
     "dev:user": "npm run dev --prefix services/user-service",
@@ -16,8 +17,41 @@
     "dev:admin": "npm run dev --prefix services/admin-service",
     "dev:notification": "npm run dev --prefix services/notification-service",
     "dev:chat": "npm run dev --prefix services/chat-service",
+
     "dev:backend": "concurrently \"npm run dev:gateway\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:post\" \"npm run dev:provider\" \"npm run dev:admin\" \"npm run dev:notification\" \"npm run dev:chat\"",
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev": "concurrently \"npm run dev:user-frontend\" \"npm run dev:admin-frontend\" \"npm run dev:backend\"",
+
+    "install:gateway": "npm install --prefix api-gateway",
+    "install:auth": "npm install --prefix services/auth-service",
+    "install:user": "npm install --prefix services/user-service",
+    "install:post": "npm install --prefix services/post-service",
+    "install:provider": "npm install --prefix services/provider-service",
+    "install:admin": "npm install --prefix services/admin-service",
+    "install:notification": "npm install --prefix services/notification-service",
+    "install:chat": "npm install --prefix services/chat-service",
+    "install:database": "npm install --prefix database",
+    "install:user-frontend": "npm install --prefix user-frontend",
+    "install:admin-frontend": "npm install --prefix admin-frontend",
+
+    "install:backend": "concurrently \"npm run install:gateway\" \"npm run install:auth\" \"npm run install:user\" \"npm run install:post\" \"npm run install:provider\" \"npm run install:admin\" \"npm run install:notification\" \"npm run install:chat\"",
+    "install:frontends": "concurrently \"npm run install:user-frontend\" \"npm run install:admin-frontend\"",
+    "install:all": "concurrently \"npm run install:database\" \"npm run install:backend\" \"npm run install:frontends\"",
+
+    "build:gateway": "npm run build --prefix api-gateway",
+    "build:auth": "npm run build --prefix services/auth-service",
+    "build:user": "npm run build --prefix services/user-service",
+    "build:post": "npm run build --prefix services/post-service",
+    "build:provider": "npm run build --prefix services/provider-service",
+    "build:admin": "npm run build --prefix services/admin-service",
+    "build:notification": "npm run build --prefix services/notification-service",
+    "build:chat": "npm run build --prefix services/chat-service",
+    "build:user-frontend": "npm run build --prefix user-frontend",
+    "build:admin-frontend": "npm run build --prefix admin-frontend",
+
+    "build:backend": "concurrently \"npm run build:gateway\" \"npm run build:auth\" \"npm run build:user\" \"npm run build:post\" \"npm run build:provider\" \"npm run build:admin\" \"npm run build:notification\" \"npm run build:chat\"",
+    "build:frontends": "concurrently \"npm run build:user-frontend\" \"npm run build:admin-frontend\"",
+    "build:all": "concurrently \"npm run build:backend\" \"npm run build:frontends\"",
+
     "create:superadmin": "ts-node scripts/create-superadmin.ts"
   },
   "repository": {
