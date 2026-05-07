@@ -152,6 +152,14 @@ Base path:
 | GET | /users/:id | Get user details by ID | Yes (Admin/SuperAdmin) |
 | PATCH | /users/:id/block | Block a user | Yes (Admin/SuperAdmin) |
 | PATCH | /users/:id/unblock | Unblock a user | Yes (Admin/SuperAdmin) |
+| PATCH | /superadmin/users/:id/role | Update user role | Yes (SuperAdmin only) |
+| POST | /superadmin/users | Create a new USER or ADMIN account | Yes (SuperAdmin only) |
+| POST | /superadmin/admins | Create/promote an admin from existing user | Yes (SuperAdmin only) |
+| DELETE | /superadmin/users/:id | Delete a user | Yes (SuperAdmin only) |
+| GET | /superadmin/categories | List service categories and subcategories | Yes (SuperAdmin only) |
+| POST | /superadmin/categories | Add category or seed subcategory mapping | Yes (SuperAdmin only) |
+| PATCH | /superadmin/categories | Rename category/subcategory mapping | Yes (SuperAdmin only) |
+| DELETE | /superadmin/categories | Delete category mapping (hides linked services) | Yes (SuperAdmin only) |
 | GET | /provider-requests | Get all provider requests | Yes (Admin/SuperAdmin) |
 | GET | /provider-requests/:id | Get provider request details | Yes (Admin/SuperAdmin) |
 | PATCH | /provider-requests/:id/reviewing | Mark provider request as reviewing | Yes (Admin/SuperAdmin) |
@@ -200,8 +208,7 @@ Base path:
 | POST | /internal | Create notification from another service | Internal |
 
 Important note:
-Notifications are implemented with normal HTTP requests in this version.
-Real-time notifications can be added later as a future improvement.
+Notifications support HTTP endpoints and real-time updates through Socket.IO in `frontend_V3`.
 
 ---
 
@@ -226,5 +233,17 @@ Base path:
 
 Important note:
 
-Chat is implemented with normal HTTP requests in this version.  
-Real-time chat with WebSocket or Socket.IO can be added later as a future improvement.
+Chat supports HTTP endpoints and real-time message delivery/read updates through Socket.IO in `frontend_V3`.
+
+---
+
+## Frontend v3 API Usage Notes
+
+- Authentication token is persisted in local storage and reused on refresh.
+- Admin backoffice consumes:
+  - `/admin/superadmin/users` (create USER/ADMIN)
+  - `/admin/superadmin/categories` (category management)
+  - `/admin/reports`, `/admin/reports/:id`, `/admin/reports/:id/reviewing`, `/admin/reports/:id/resolve`, `/admin/reports/:id/reject`
+  - `/admin/provider-requests`, `/admin/provider-requests/:id`, `/admin/provider-requests/:id/reviewing`, `/admin/provider-requests/:id/approve`, `/admin/provider-requests/:id/reject`
+  - `/admin/tickets`, `/admin/tickets/:id`, `/admin/tickets/:id/status`, `/admin/tickets/:id/messages`
+- Moderation workflow in UI is queue-first: clicking `View` loads detail, and content can be marked/reviewed before final action.

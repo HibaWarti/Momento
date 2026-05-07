@@ -53,6 +53,38 @@ These features may be considered as future improvements.
 
 ---
 
+## 2.1 Recent v3 Implementation Updates
+
+The current implementation now includes:
+
+- Real backend persistence for posts, services, comments, reports, tickets, chats, and notifications (not React-only mock state).
+- Real-time chat and notification updates in `frontend_V3` through Socket.IO.
+- Provider role behavior:
+  - Users who submit a provider request can be treated as provider-role accounts for provider features.
+  - Verified provider badge is only shown after admin approval of CIN/provider request.
+- Admin moderation workflow focused on queue + detail:
+  - Reports and provider requests can be opened in detail view for context-first review.
+  - Status can move to `REVIEWING` before final moderation decision.
+  - Moderation supports actions such as warning users, hiding content, deleting comment content, and banning users based on report outcome.
+- Support ticket flow is active end-to-end:
+  - Users submit tickets from user pages.
+  - Admins can review, assign, update status/priority, and reply.
+- SuperAdmin governance features:
+  - User management with richer moderation context and report totals.
+  - Dedicated user creation flow for USER and ADMIN accounts.
+  - Admin creation/promotion from existing users.
+  - User deletion.
+  - Access to superadmin logs and expanded platform stats/charts.
+  - Category and subcategory management for provider services.
+- Separate `admin_frontend` app is used for administration backoffice (real API data, no mock data).
+- User experience updates in `frontend_V3` include:
+  - Followers/following profile lists with follow/unfollow actions.
+  - Improved activity listing with direct links to related posts.
+  - Service detail and review submission flow refinement.
+  - Better empty states for messaging and search behavior.
+
+---
+
 ## 3. Main Business Rules
 
 ### 3.1 Visitor Rules
@@ -318,6 +350,25 @@ A report contains:
 A report should concern one main target: either a post, a comment, a user, or a service.
 
 An admin or SuperAdmin can:
+
+- Open report queue entries and inspect contextual content (reported entity plus related content when available).
+- Move report status from `PENDING` to `REVIEWING` before final decision.
+- Resolve or reject reports with moderation notes and explicit action tracking.
+- Trigger moderation outcomes based on action taken (for example content hide/delete or user ban).
+
+---
+
+### 3.10 Support Ticket Rules
+
+A user can submit support tickets for account, technical, report, provider, or general issues.
+
+An admin or SuperAdmin can:
+
+- View ticket list and ticket details
+- Assign ticket to themselves or another admin
+- Update ticket status and priority
+- Reply to ticket messages
+- Keep an audit trail through logs and status transitions
 
 - View reports
 - View report details
