@@ -16,6 +16,8 @@ const allowedOrigins = new Set([
   FRONTEND_URL,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
 ])
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001'
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3002'
