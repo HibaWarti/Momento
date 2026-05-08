@@ -24,18 +24,26 @@ const Ctx = createContext<AuthCtx | null>(null);
 const STORAGE_KEY = "momento.admin.session";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AdminUser | null>(null);
+  // Initialize user synchronously from localStorage to avoid a render
+  // race where protected routes redirect to /login before we hydrate state.
+  const [user, setUser] = useState<AdminUser | null>(() => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw) as AdminUser } catch { return null }
+  });
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try { setUser(JSON.parse(raw)); } catch { /* noop */ }
-    }
+    // Validate token on mount and refresh stored user info
     if (localStorage.getItem(authTokenKey)) {
       getMe().then((res) => {
         if (res.user.role === "ADMIN" || res.user.role === "SUPERADMIN") {
           setUser(res.user);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(res.user));
+        } else {
+          // Clear invalid session
+          setUser(null);
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(authTokenKey);
         }
       }).catch(() => undefined);
     }
