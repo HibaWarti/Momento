@@ -51,7 +51,15 @@ app.options(/.*/, cors(corsOptions))
 
 app.use(morgan('dev'))
 
-app.use('/uploads', express.static(path.join(__dirname, '../../uploads')))
+// Allow cross-origin resource loading for uploaded static assets
+app.use(
+  '/uploads',
+  (req: Request, res: Response, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+    next()
+  },
+  express.static(path.join(__dirname, '../../uploads')),
+)
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).json({

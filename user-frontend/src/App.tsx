@@ -2196,7 +2196,7 @@ const PostCommentsSection = ({
         {!post.comments.length ? (
           <div className="empty-comments">
             <MessageCircle size={26} />
-            <p>No comments yet. Start the conversation.</p>
+            <p>No comments yet.</p>
           </div>
         ) : null}
       </div>

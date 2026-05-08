@@ -52,7 +52,8 @@
     "build:frontends": "concurrently \"npm run build:user-frontend\" \"npm run build:admin-frontend\"",
     "build:all": "concurrently \"npm run build:backend\" \"npm run build:frontends\"",
 
-    "create:superadmin": "ts-node scripts/create-superadmin.ts"
+    "create:superadmin": "ts-node scripts/create-superadmin.ts",
+    "health": "node scripts/check-health.js"
   },
   "repository": {
     "type": "git",
