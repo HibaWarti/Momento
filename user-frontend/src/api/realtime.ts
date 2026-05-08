@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client'
-import { API_BASE_URL, getStoredToken } from '../api'
+import {  getStoredToken } from '../api'
+//import {  API_BASE_URL } from '../api'
 
 export type { Socket } from 'socket.io-client'
 
@@ -81,14 +82,14 @@ type RealtimeOptions = {
   token?: string | null
 }
 
-function apiOrigin() {
-  try {
-    const url = new URL(API_BASE_URL)
-    return `${url.protocol}//${url.host}`
-  } catch {
-    return 'http://localhost:3000'
-  }
-}
+// function apiOrigin() {
+//   try {
+//     const url = new URL(API_BASE_URL)
+//     return `${url.protocol}//${url.host}`
+//   } catch {
+//     return 'http://localhost:3000'
+//   }
+// }
 
 function socketOptions(path: string, options: RealtimeOptions = {}) {
   return {
@@ -107,15 +108,19 @@ export function refreshSocketToken(socket: Socket, token = getStoredToken()) {
   }
 }
 
+const CHAT_SOCKET_URL = import.meta.env.VITE_CHAT_SOCKET_URL || 'http://localhost:3007'
+const NOTIFICATION_SOCKET_URL =
+  import.meta.env.VITE_NOTIFICATION_SOCKET_URL || 'http://localhost:3006'
+
 export function createChatSocket(options?: RealtimeOptions) {
-  return io(apiOrigin(), socketOptions('/api/chats/socket.io', options)) as Socket<
+  return io(CHAT_SOCKET_URL, socketOptions('/socket.io', options)) as Socket<
     ChatServerEvents,
     ChatClientEvents
   >
 }
 
 export function createNotificationSocket(options?: RealtimeOptions) {
-  return io(apiOrigin(), socketOptions('/api/notifications/socket.io', options)) as Socket<
+  return io(NOTIFICATION_SOCKET_URL, socketOptions('/socket.io', options)) as Socket<
     NotificationServerEvents
   >
 }

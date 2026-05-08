@@ -13,10 +13,14 @@ const app = express()
 
 const PORT = process.env.PORT || 3004
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const ADMIN_FRONTEND_URL = process.env.ADMIN_FRONTEND_URL || 'http://localhost:5174'
 const allowedOrigins = new Set([
   FRONTEND_URL,
+  ADMIN_FRONTEND_URL,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
 ])

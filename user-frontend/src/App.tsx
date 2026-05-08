@@ -142,6 +142,7 @@ import {
   type ApiPost,
   type ApiService,
   type SupportTicket,
+  API_ORIGIN,
 } from './api'
 import {
   createChatSocket,
@@ -668,7 +669,9 @@ function mapApiUser(user: ApiUser, requestedRole?: Role): AppUser {
 function apiAssetUrl(path?: string | null) {
   if (!path) return ''
   if (/^(https?:|data:|blob:)/.test(path)) return path
-  return path.startsWith('/') ? path : `/${path}`
+
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${API_ORIGIN}${normalizedPath}`
 }
 
 function parsePostContent(content: string) {

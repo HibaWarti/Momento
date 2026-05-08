@@ -189,6 +189,32 @@ services:
     networks:
       - momento-network
 
+  user-frontend:
+    build:
+      context: .
+      dockerfile: user-frontend/Dockerfile
+    container_name: momento-user-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - momento-network
+
+  admin-frontend:
+    build:
+      context: .
+      dockerfile: admin-frontend/Dockerfile
+    container_name: momento-admin-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - momento-network
+
 volumes:
   momento_postgres_data:
 

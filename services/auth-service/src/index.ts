@@ -15,28 +15,34 @@ const app = express()
 
 const PORT = process.env.PORT || 3001
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const ADMIN_FRONTEND_URL = process.env.ADMIN_FRONTEND_URL || 'http://localhost:5174'
+
 const allowedOrigins = new Set([
   FRONTEND_URL,
+  ADMIN_FRONTEND_URL,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
 ])
 
 app.use(helmet())
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
-        callback(null, true)
-        return
-      }
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true)
+      return
+    }
 
-      callback(new Error(`Origin ${origin} is not allowed by CORS`))
-    },
-    credentials: true,
-  }),
-)
+    callback(new Error(`Origin ${origin} is not allowed by CORS`))
+  },
+  credentials: true,
+}
+
+app.use(cors(corsOptions))
+app.options(/.*/, cors(corsOptions))
 app.use(express.json())
 app.use(morgan('dev'))
 
