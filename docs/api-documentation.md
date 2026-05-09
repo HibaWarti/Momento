@@ -2,8 +2,6 @@
 
 This document contains the APIs implemented in Momento.
 
-Each section is updated after finishing a backend phase.
-
 ---
 
 ## Authentication APIs
@@ -208,7 +206,7 @@ Base path:
 | POST | /internal | Create notification from another service | Internal |
 
 Important note:
-Notifications support HTTP endpoints and real-time updates through Socket.IO in `frontend_V3`.
+Notifications support HTTP endpoints and real-time updates through Socket.IO in `user-frontend`.
 
 ---
 
@@ -233,17 +231,8 @@ Base path:
 
 Important note:
 
-Chat supports HTTP endpoints and real-time message delivery/read updates through Socket.IO in `frontend_V3`.
+Chat supports HTTP endpoints and real-time message delivery/read updates through Socket.IO in `user-frontend`.
 
 ---
 
-## Frontend v3 API Usage Notes
 
-- Authentication token is persisted in local storage and reused on refresh.
-- Admin backoffice consumes:
-  - `/admin/superadmin/users` (create USER/ADMIN)
-  - `/admin/superadmin/categories` (category management)
-  - `/admin/reports`, `/admin/reports/:id`, `/admin/reports/:id/reviewing`, `/admin/reports/:id/resolve`, `/admin/reports/:id/reject`
-  - `/admin/provider-requests`, `/admin/provider-requests/:id`, `/admin/provider-requests/:id/reviewing`, `/admin/provider-requests/:id/approve`, `/admin/provider-requests/:id/reject`
-  - `/admin/tickets`, `/admin/tickets/:id`, `/admin/tickets/:id/status`, `/admin/tickets/:id/messages`
-- Moderation workflow in UI is queue-first: clicking `View` loads detail, and content can be marked/reviewed before final action.

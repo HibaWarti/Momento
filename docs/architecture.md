@@ -19,7 +19,8 @@ Later, the project can evolve into one database per service if needed.
 
 ```txt
 momento/
-├── frontend/
+├── admin-frontend/
+├── user-frontend/
 ├── api-gateway/
 ├── services/
 │   ├── auth-service/

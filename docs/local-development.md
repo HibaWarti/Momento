@@ -4,16 +4,18 @@
 
 Before running the project, make sure you have installed:
 
-- Node.js
+- Node.js (LTS recommended)
 - npm
 - Git
 - PostgreSQL
-- VS Code or Trae IDE
+- VS Code or another IDE
+- (Optional) Docker & Docker Compose
 
 ## 2. Project Structure
 
-Momento/
-- frontend/
+Momento/ 
+- admin-frontend/
+- user-frontend/
 - api-gateway/
 - services/
   - auth-service/
@@ -22,214 +24,190 @@ Momento/
   - provider-service/
   - admin-service/
   - notification-service/
+  - chat-service/
 - database/
 - docs/
+- docker-compose.yml
+- package.json (root)
 - README.md
 
 ## 3. Install Dependencies
 
-Each part has its own dependencies.
+There are two convenient options to install dependencies for the whole repository.
 
-### Frontend
+Option A — Install everything from the project root (recommended):
 
-Command:
+```bash
+npm run install:all
+```
 
-cd frontend  
+Note: after a fresh clone run `npm install` at the repository root once before `npm run install:all` so required root devDependencies (for example `concurrently`) are available. Alternatively run the per-folder installs shown in Option B.
+
+Option B — Install parts individually using root helper scripts or by entering each folder.
+
+Examples (root helper scripts):
+
+```bash
+npm run install:frontends      # installs both frontends
+npm run install:backend        # installs all backend services + gateway
+npm run install:database       # installs packages for the database workspace
+```
+
+Examples (manual):
+
+```bash
+cd admin-frontend 
 npm install
 
-### API Gateway
-
-Command:
-
-cd api-gateway  
+cd user-frontend 
 npm install
 
-### Database Workspace
-
-Command:
-
-cd database  
+cd api-gateway 
 npm install
 
-### Services
-
-Commands:
-
-cd services/auth-service  
+cd database 
 npm install
 
-cd ../user-service  
+cd services/auth-service 
 npm install
-
-cd ../post-service  
-npm install
-
-cd ../provider-service  
-npm install
-
-cd ../admin-service  
-npm install
-
-cd ../notification-service  
-npm install
-
-cd ../chat-service  
-npm install
+```
+And the same for the rest of services
 
 ## 4. Environment Variables
 
-Each backend service has a `.env.example` file.
+Each backend service has a `.env.example` file. Create a `.env` file in each service folder from its `.env.example`.
 
-Create a `.env` file in each service folder based on `.env.example`.
+Also create `database/.env` from `database/.env.example` and populate `DATABASE_URL`.
 
-The `database/` folder also has its own `.env.example` file.
+Example database connection:
 
-Create this file:
-
-database/.env
-
-Based on:
-
-database/.env.example
-
-Example for database:
-
+```
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/momento?schema=public"
+```
 
-Replace `YOUR_PASSWORD` with your real PostgreSQL password.
+Example API Gateway variables (example values):
 
-Example for API Gateway:
-
-PORT=3000  
+```
+PORT=3000
 FRONTEND_URL=http://localhost:5173
+ADMIN_FRONTEND_URL=http://localhost:5174
 
-AUTH_SERVICE_URL=http://localhost:3001  
-USER_SERVICE_URL=http://localhost:3002  
-POST_SERVICE_URL=http://localhost:3003  
-PROVIDER_SERVICE_URL=http://localhost:3004  
-ADMIN_SERVICE_URL=http://localhost:3005  
+AUTH_SERVICE_URL=http://localhost:3001
+USER_SERVICE_URL=http://localhost:3002
+POST_SERVICE_URL=http://localhost:3003
+PROVIDER_SERVICE_URL=http://localhost:3004
+ADMIN_SERVICE_URL=http://localhost:3005
 NOTIFICATION_SERVICE_URL=http://localhost:3006
+CHAT_SERVICE_URL=http://localhost:3007
+```
+
+Adjust ports and URLs in each service's `.env` as needed.
 
 ## 5. PostgreSQL Setup
 
-Create a local PostgreSQL database named:
+Create a local PostgreSQL database named `momento`:
 
-momento
-
-You can create it from pgAdmin or with SQL:
-
+```sql
 CREATE DATABASE momento;
+```
 
-The database connection is configured in:
+Configure the connection string in `database/.env` as shown above.
 
-database/.env
-
-The Prisma schema is located in:
-
-database/prisma/schema.prisma
+The Prisma schema lives at `database/prisma/schema.prisma`.
 
 ## 6. Prisma Commands
 
 Run these commands from the `database/` folder.
 
-Format the schema:
-
+```bash
 npx prisma format
-
-Validate the schema:
-
 npx prisma validate
-
-Run the first migration:
-
 npx prisma migrate dev --name init
-
-Generate Prisma Client:
-
 npx prisma generate
-
-Open Prisma Studio:
-
 npx prisma studio
+```
 
-## 7. Local Ports
+## 7. Local Ports / How to verify
 
-Frontend: http://localhost:5173
+- API Gateway: http://localhost:3000 (default)
+- Backend services: typically start at 3001..3007 — check each service's `package.json`/`.env`
+- Frontends: `user-frontend` and `admin-frontend` (Vite defaults to 5173). Verify each frontend's dev script or `.env` for exact ports.
 
-API Gateway: http://localhost:3000
+Use the root helper scripts to run services (these use `concurrently`):
 
-Auth Service: http://localhost:3001
+## 8. Run the Project (root scripts)
 
-User Service: http://localhost:3002
+From the project root you can use the provided npm scripts to run or build everything.
 
-Post Service: http://localhost:3003
+Start everything (both frontends + backend):
 
-Provider Service: http://localhost:3004
-
-Admin Service: http://localhost:3005
-
-Notification Service: http://localhost:3006
-
-## 8. Run the Project
-
-From the project root, run all backend services:
-
-npm run dev:backend
-
-Run the full project, including frontend:
-
+```bash
 npm run dev
+```
 
-Run only the frontend:
+Start backend services only:
 
-npm run dev:frontend
+```bash
+npm run dev:backend
+```
 
-Run only the API Gateway:
+Start a single piece (examples):
 
-npm run dev:gateway
+```bash
+npm run dev:user-frontend   # run user frontend
+npm run dev:admin-frontend  # run admin frontend
+npm run dev:gateway         # run API gateway only
+```
+
+Install helpers you may also use:
+
+```bash
+npm run install:all         # install database, backend and frontends
+npm run install:backend
+npm run install:frontends
+```
+
+Build everything:
+
+```bash
+npm run build:all
+```
+
+Other useful root scripts:
+
+- `npm run create:superadmin` — run the helper script to create a superadmin user (requires ts-node and proper env).
+- `npm run health` — quick health check script (calls `scripts/check-health.js`).
 
 ## 9. Health Check Routes
 
 ### Direct Service Routes
 
-curl.exe http://localhost:3000/api/health
+Use the ports shown when services are running (examples):
 
-curl.exe http://localhost:3001/health
-
-curl.exe http://localhost:3002/health
-
-curl.exe http://localhost:3003/health
-
-curl.exe http://localhost:3004/health
-
-curl.exe http://localhost:3005/health
-
-curl.exe http://localhost:3006/health
-
-curl.exe http://localhost:3007/health
+```bash
+curl http://localhost:3000/api/health
+curl http://localhost:3001/health
+curl http://localhost:3002/health
+```
 
 ### Through API Gateway
 
-curl.exe http://localhost:3000/api/auth/health
+```bash
+curl http://localhost:3000/api/auth/health
+curl http://localhost:3000/api/users/health
+curl http://localhost:3000/api/posts/health
+```
 
-curl.exe http://localhost:3000/api/users/health
+## 10. Docker / Compose
 
-curl.exe http://localhost:3000/api/posts/health
+This repo contains `docker-compose.yml`. You can use Docker to run the database and services if you prefer containerized local development. The compose file is not a required step for quick local dev but is available for CI/production-like runs.
 
-curl.exe http://localhost:3000/api/providers/health
+See `docs/docker.md` for a short Compose quickstart, commands, and troubleshooting tips.
 
-curl.exe http://localhost:3000/api/admin/health
-
-curl.exe http://localhost:3000/api/notifications/health
-
-curl.exe http://localhost:3000/api/chats/health
-
-
-## 10. Notes
+## 11. Notes
 
 - Do not commit `.env` files.
 - Do not commit `node_modules`.
 - Use `.env.example` files to document required environment variables.
-- The project uses one PostgreSQL database in the first version.
-- Prisma configuration and migrations are centralized in the `database/` folder.
-- Docker will be added later after the local version is stable.
+- The project uses a centralized `database/` workspace for Prisma configuration and migrations.
+- The repo provides root npm scripts to make local setup quicker (`install:all`, `dev`, `build:all`, etc.).
