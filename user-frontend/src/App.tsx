@@ -537,11 +537,38 @@ const themes: Array<{ key: ThemeKey; name: string }> = [
 const landingCategories = [
   { name: 'Photography', icon: Camera, count: 24 },
   { name: 'Event Planning', icon: Sparkles, count: 18 },
-  { name: 'Catering', icon: Globe, count: 15 },
+  { name: 'Traiteur', icon: Globe, count: 15 },
   { name: 'Videography', icon: Play, count: 12 },
   { name: 'Entertainment', icon: Zap, count: 9 },
   { name: 'Decoration', icon: Award, count: 21 },
 ]
+
+const serviceCategoryOptions = [
+  {
+    category: 'Traiteur',
+    subcategories: ['Chinese Food', 'Moroccan Food', 'French Food', 'Buffet', 'Pastry', 'Wedding Catering'],
+  },
+  {
+    category: 'Events',
+    subcategories: ['Decoration', 'Wedding Planning', 'Birthday Planning', 'Florist', 'Venue Setup'],
+  },
+  {
+    category: 'Beauty',
+    subcategories: ['Makeup', 'Hair Styling', 'Henna', 'Nails', 'Skin Care'],
+  },
+  {
+    category: 'Media',
+    subcategories: ['Photography', 'Videography', 'Reels', 'Drone', 'Photo Booth'],
+  },
+  {
+    category: 'Entertainment',
+    subcategories: ['DJ', 'Live Band', 'Traditional Music', 'Kids Animation', 'Host'],
+  },
+]
+
+function subcategoriesFor(category: string) {
+  return serviceCategoryOptions.find((item) => item.category === category)?.subcategories ?? []
+}
 
 const landingStats = [
   { label: 'Active users', value: '10K+', icon: Users },
@@ -1527,10 +1554,9 @@ function RegisterPage() {
               <label>
                 Professional category
                 <select>
-                  <option>Photography</option>
-                  <option>Makeup</option>
-                  <option>Decoration</option>
-                  <option>Catering</option>
+                  {serviceCategoryOptions.map((option) => (
+                    <option key={option.category}>{option.category}</option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -3559,6 +3585,16 @@ function ServiceEditModal({
   const [title, setTitle] = useState(service.title)
   const [category, setCategory] = useState(service.category)
   const [subcategory, setSubcategory] = useState(service.subcategory)
+  const categoryOptions = serviceCategoryOptions.some((option) => option.category === category)
+    ? serviceCategoryOptions
+    : [
+        {
+          category,
+          subcategories: subcategory ? [subcategory] : [],
+        },
+        ...serviceCategoryOptions,
+      ]
+  const availableSubcategories = categoryOptions.find((option) => option.category === category)?.subcategories ?? []
   const [description, setDescription] = useState(service.description)
   const [city, setCity] = useState(service.city ?? '')
   const [price, setPrice] = useState(service.price?.toString() ?? '')
@@ -3690,11 +3726,33 @@ function ServiceEditModal({
             <div className="form-grid">
               <label>
                 Category
-                <input value={category} onChange={(event) => setCategory(event.target.value)} required />
+                <select
+                  value={category}
+                  onChange={(event) => {
+                    const nextCategory = event.target.value
+                    setCategory(nextCategory)
+                    setSubcategory(subcategoriesFor(nextCategory)[0] ?? '')
+                  }}
+                  required
+                >
+                  {categoryOptions.map((option) => (
+                    <option key={option.category} value={option.category}>{option.category}</option>
+                  ))}
+                </select>
               </label>
               <label>
                 Subcategory
-                <input value={subcategory} onChange={(event) => setSubcategory(event.target.value)} />
+                <input
+                  value={subcategory}
+                  onChange={(event) => setSubcategory(event.target.value)}
+                  list="service-edit-subcategory-options"
+                  placeholder="Choose or type a subcategory"
+                />
+                <datalist id="service-edit-subcategory-options">
+                  {availableSubcategories.map((option) => (
+                    <option key={option} value={option} />
+                  ))}
+                </datalist>
               </label>
             </div>
             <label>
@@ -4189,12 +4247,10 @@ function SettingsPage() {
             <div className="form-grid">
               <label>
                 Main category
-                <select name="mainCategory" defaultValue="Events">
-                  <option>Events</option>
-                  <option>Beauty</option>
-                  <option>Media</option>
-                  <option>Decoration</option>
-                  <option>Catering</option>
+                <select name="mainCategory" defaultValue="Traiteur">
+                  {serviceCategoryOptions.map((option) => (
+                    <option key={option.category}>{option.category}</option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -4368,8 +4424,9 @@ function CreateModal({ initialType = 'post', onClose }: { initialType?: 'post' |
   const [hashtags, setHashtags] = useState('')
   const [serviceTitle, setServiceTitle] = useState('')
   const [serviceDescription, setServiceDescription] = useState('')
-  const [category, setCategory] = useState('Events')
-  const [subcategory, setSubcategory] = useState('Photography')
+  const [category, setCategory] = useState(serviceCategoryOptions[0].category)
+  const [subcategory, setSubcategory] = useState(serviceCategoryOptions[0].subcategories[0])
+  const availableSubcategories = subcategoriesFor(category)
   const [serviceCity, setServiceCity] = useState('')
   const [servicePrice, setServicePrice] = useState('')
   const [keywords, setKeywords] = useState('')
@@ -4496,20 +4553,32 @@ function CreateModal({ initialType = 'post', onClose }: { initialType?: 'post' |
               <>
                 <label>
                   Category
-                  <select value={category} onChange={(event) => setCategory(event.target.value)}>
-                    <option>Events</option>
-                    <option>Beauty</option>
-                    <option>Media</option>
+                  <select
+                    value={category}
+                    onChange={(event) => {
+                      const nextCategory = event.target.value
+                      setCategory(nextCategory)
+                      setSubcategory(subcategoriesFor(nextCategory)[0] ?? '')
+                    }}
+                  >
+                    {serviceCategoryOptions.map((option) => (
+                      <option key={option.category} value={option.category}>{option.category}</option>
+                    ))}
                   </select>
                 </label>
                 <label>
                   Subcategory
-                  <select value={subcategory} onChange={(event) => setSubcategory(event.target.value)}>
-                    <option>Photography</option>
-                    <option>Makeup</option>
-                    <option>Decoration</option>
-                    <option>Catering</option>
-                  </select>
+                  <input
+                    value={subcategory}
+                    onChange={(event) => setSubcategory(event.target.value)}
+                    list="service-create-subcategory-options"
+                    placeholder="Choose or type a subcategory"
+                  />
+                  <datalist id="service-create-subcategory-options">
+                    {availableSubcategories.map((option) => (
+                      <option key={option} value={option} />
+                    ))}
+                  </datalist>
                 </label>
                 <label>
                   Keywords

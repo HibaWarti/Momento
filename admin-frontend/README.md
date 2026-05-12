@@ -1,3 +1,12 @@
-# Welcome to your Lovable project
+# Momento Admin Frontend
 
-TODO: Document your project here
+React/Vite backoffice for Momento administrators and super administrators.
+
+Main sections:
+
+- Dashboard statistics
+- Reports moderation
+- Provider request validation
+- User management
+- Category and subcategory management
+- Admin logs

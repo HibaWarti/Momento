@@ -68,6 +68,29 @@ async function createNotification(payload: {
 const allowedTicketStatuses = ['OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED', 'CLOSED'] as const
 const allowedTicketPriorities = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const
 
+const defaultServiceCategories = [
+  {
+    category: 'Traiteur',
+    subcategories: ['Chinese Food', 'Moroccan Food', 'French Food', 'Buffet', 'Pastry', 'Wedding Catering'],
+  },
+  {
+    category: 'Events',
+    subcategories: ['Decoration', 'Wedding Planning', 'Birthday Planning', 'Florist', 'Venue Setup'],
+  },
+  {
+    category: 'Beauty',
+    subcategories: ['Makeup', 'Hair Styling', 'Henna', 'Nails', 'Skin Care'],
+  },
+  {
+    category: 'Media',
+    subcategories: ['Photography', 'Videography', 'Reels', 'Drone', 'Photo Booth'],
+  },
+  {
+    category: 'Entertainment',
+    subcategories: ['DJ', 'Live Band', 'Traditional Music', 'Kids Animation', 'Host'],
+  },
+]
+
 function normalizeEnumValue<T extends readonly string[]>(
   value: unknown,
   allowedValues: T,
@@ -79,6 +102,40 @@ function normalizeEnumValue<T extends readonly string[]>(
   const normalized = String(value).trim().toUpperCase()
 
   return allowedValues.includes(normalized) ? normalized : null
+}
+
+async function ensureDefaultServiceCategories() {
+  await Promise.all(
+    defaultServiceCategories.map(async (item) => {
+      const category = await prisma.category.upsert({
+        where: {
+          name: item.category,
+        },
+        update: {},
+        create: {
+          name: item.category,
+        },
+      })
+
+      await Promise.all(
+        item.subcategories.map((subcategory) =>
+          prisma.subcategory.upsert({
+            where: {
+              categoryId_name: {
+                categoryId: category.id,
+                name: subcategory,
+              },
+            },
+            update: {},
+            create: {
+              categoryId: category.id,
+              name: subcategory,
+            },
+          }),
+        ),
+      )
+    }),
+  )
 }
 
 app.use(helmet())
@@ -2439,19 +2496,47 @@ app.get('/superadmin/stats', authenticate, requireSuperAdmin, async (_req: Reque
 
 app.get('/superadmin/categories', authenticate, requireSuperAdmin, async (_req: Request, res: Response) => {
   try {
-    const services = await prisma.service.findMany({
-      where: { status: { not: 'DELETED' } },
-      select: { category: true, subcategory: true },
+    await ensureDefaultServiceCategories()
+
+    const categories = await prisma.category.findMany({
+      orderBy: {
+        name: 'asc',
+      },
+      include: {
+        subcategories: {
+          orderBy: {
+            name: 'asc',
+          },
+          include: {
+            _count: {
+              select: {
+                services: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            services: true,
+          },
+        },
+      },
     })
-    const grouped = new Map<string, Set<string>>()
-    for (const service of services) {
-      const cat = String(service.category || '').trim()
-      if (!cat) continue
-      if (!grouped.has(cat)) grouped.set(cat, new Set<string>())
-      if (service.subcategory && String(service.subcategory).trim()) grouped.get(cat)?.add(String(service.subcategory).trim())
-    }
-    const categories = [...grouped.entries()].map(([category, subs]) => ({ category, subcategories: [...subs] }))
-    return res.status(200).json({ success: true, categories })
+
+    return res.status(200).json({
+      success: true,
+      categories: categories.map((item) => ({
+        id: item.id,
+        category: item.name,
+        servicesCount: item._count.services,
+        subcategories: item.subcategories.map((subcategory) => subcategory.name),
+        subcategoryRows: item.subcategories.map((subcategory) => ({
+          id: subcategory.id,
+          name: subcategory.name,
+          servicesCount: subcategory._count.services,
+        })),
+      })),
+    })
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to load categories', error: error instanceof Error ? error.message : 'Unknown error' })
   }
@@ -2460,13 +2545,37 @@ app.get('/superadmin/categories', authenticate, requireSuperAdmin, async (_req: 
 app.post('/superadmin/categories', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { category, subcategory } = req.body
-    if (!category || !String(category).trim()) return res.status(400).json({ success: false, message: 'Category is required' })
-    if (subcategory && String(subcategory).trim()) {
-      await prisma.service.updateMany({
-        where: { category: String(category).trim(), subcategory: null },
-        data: { subcategory: String(subcategory).trim() },
+    const categoryName = String(category || '').trim()
+    const subcategoryName = String(subcategory || '').trim()
+
+    if (!categoryName) return res.status(400).json({ success: false, message: 'Category is required' })
+
+    const categoryRecord = await prisma.category.upsert({
+      where: {
+        name: categoryName,
+      },
+      update: {},
+      create: {
+        name: categoryName,
+      },
+    })
+
+    if (subcategoryName) {
+      await prisma.subcategory.upsert({
+        where: {
+          categoryId_name: {
+            categoryId: categoryRecord.id,
+            name: subcategoryName,
+          },
+        },
+        update: {},
+        create: {
+          categoryId: categoryRecord.id,
+          name: subcategoryName,
+        },
       })
     }
+
     return res.status(200).json({ success: true, message: 'Category operation completed' })
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to create category', error: error instanceof Error ? error.message : 'Unknown error' })
@@ -2476,11 +2585,83 @@ app.post('/superadmin/categories', authenticate, requireSuperAdmin, async (req: 
 app.patch('/superadmin/categories', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { category, subcategory, nextCategory, nextSubcategory } = req.body
-    if (!category || !nextCategory) return res.status(400).json({ success: false, message: 'category and nextCategory are required' })
-    await prisma.service.updateMany({
-      where: { category: String(category).trim(), ...(subcategory !== undefined ? { subcategory: subcategory ? String(subcategory).trim() : null } : {}) },
-      data: { category: String(nextCategory).trim(), ...(nextSubcategory !== undefined ? { subcategory: nextSubcategory ? String(nextSubcategory).trim() : null } : {}) },
+    const categoryName = String(category || '').trim()
+    const subcategoryName = String(subcategory || '').trim()
+    const nextCategoryName = String(nextCategory || '').trim()
+    const nextSubcategoryName = String(nextSubcategory || '').trim()
+
+    if (!categoryName || !nextCategoryName) return res.status(400).json({ success: false, message: 'category and nextCategory are required' })
+
+    const categoryRecord = await prisma.category.findUnique({
+      where: {
+        name: categoryName,
+      },
     })
+
+    if (!categoryRecord) return res.status(404).json({ success: false, message: 'Category not found' })
+
+    if (subcategoryName) {
+      const nextCategoryRecord = await prisma.category.upsert({
+        where: {
+          name: nextCategoryName,
+        },
+        update: {},
+        create: {
+          name: nextCategoryName,
+        },
+      })
+
+      const subcategoryRecord = await prisma.subcategory.findUnique({
+        where: {
+          categoryId_name: {
+            categoryId: categoryRecord.id,
+            name: subcategoryName,
+          },
+        },
+      })
+
+      if (!subcategoryRecord) return res.status(404).json({ success: false, message: 'Subcategory not found' })
+
+      await prisma.subcategory.update({
+        where: {
+          id: subcategoryRecord.id,
+        },
+        data: {
+          categoryId: nextCategoryRecord.id,
+          name: nextSubcategoryName || subcategoryName,
+        },
+      })
+
+      await prisma.service.updateMany({
+        where: {
+          subcategoryId: subcategoryRecord.id,
+        },
+        data: {
+          category: nextCategoryName,
+          subcategory: nextSubcategoryName || subcategoryName,
+          categoryId: nextCategoryRecord.id,
+        },
+      })
+    } else {
+      const updatedCategory = await prisma.category.update({
+        where: {
+          id: categoryRecord.id,
+        },
+        data: {
+          name: nextCategoryName,
+        },
+      })
+
+      await prisma.service.updateMany({
+        where: {
+          categoryId: updatedCategory.id,
+        },
+        data: {
+          category: nextCategoryName,
+        },
+      })
+    }
+
     return res.status(200).json({ success: true, message: 'Category updated' })
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to update category', error: error instanceof Error ? error.message : 'Unknown error' })
@@ -2490,12 +2671,64 @@ app.patch('/superadmin/categories', authenticate, requireSuperAdmin, async (req:
 app.delete('/superadmin/categories', authenticate, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { category, subcategory } = req.body
-    if (!category) return res.status(400).json({ success: false, message: 'category is required' })
-    await prisma.service.updateMany({
-      where: { category: String(category).trim(), ...(subcategory !== undefined ? { subcategory: subcategory ? String(subcategory).trim() : null } : {}) },
-      data: { status: 'HIDDEN' },
+    const categoryName = String(category || '').trim()
+    const subcategoryName = String(subcategory || '').trim()
+
+    if (!categoryName) return res.status(400).json({ success: false, message: 'category is required' })
+
+    const categoryRecord = await prisma.category.findUnique({
+      where: {
+        name: categoryName,
+      },
     })
-    return res.status(200).json({ success: true, message: 'Category deleted (services hidden)' })
+
+    if (!categoryRecord) return res.status(404).json({ success: false, message: 'Category not found' })
+
+    if (subcategoryName) {
+      const subcategoryRecord = await prisma.subcategory.findUnique({
+        where: {
+          categoryId_name: {
+            categoryId: categoryRecord.id,
+            name: subcategoryName,
+          },
+        },
+      })
+
+      if (!subcategoryRecord) return res.status(404).json({ success: false, message: 'Subcategory not found' })
+
+      await prisma.service.updateMany({
+        where: {
+          subcategoryId: subcategoryRecord.id,
+        },
+        data: {
+          subcategoryId: null,
+        },
+      })
+
+      await prisma.subcategory.delete({
+        where: {
+          id: subcategoryRecord.id,
+        },
+      })
+    } else {
+      await prisma.service.updateMany({
+        where: {
+          categoryId: categoryRecord.id,
+        },
+        data: {
+          categoryId: null,
+          subcategoryId: null,
+        },
+      })
+
+      await prisma.category.delete({
+        where: {
+          id: categoryRecord.id,
+        },
+      })
+    }
+
+    return res.status(200).json({ success: true, message: 'Category deleted' })
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to delete category', error: error instanceof Error ? error.message : 'Unknown error' })
   }

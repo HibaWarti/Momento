@@ -20,7 +20,13 @@ export type ProviderRequest = { id: string; professionalName: string; profession
 export type AdminLog = { id: string; action: string; entityType: string; entityId: string; description: string; createdAt: string; actor?: { id: string; username: string; role?: string } | null };
 export type AdminStats = { totalUsers: number; blockedUsers: number; totalPosts: number; totalServices: number; totalReports: number; pendingReports: number; totalTickets: number; pendingProviderRequests: number; totalProviders: number; totalReviews: number };
 export type AdminTicket = { id: string; subject: string; description: string; category: string; priority: "LOW" | "NORMAL" | "HIGH" | "URGENT"; status: "OPEN" | "IN_PROGRESS" | "WAITING_FOR_USER" | "RESOLVED" | "CLOSED"; createdAt: string; updatedAt: string; user?: AdminUserRow; relatedPost?: { id: string; content: string } | null; relatedComment?: { id: string; content: string } | null; messages?: Array<{ id: string; message: string; isStaff: boolean; createdAt: string }> };
-export type CategoryMap = { category: string; subcategories: string[] };
+export type CategoryMap = {
+  id?: string;
+  category: string;
+  servicesCount?: number;
+  subcategories: string[];
+  subcategoryRows?: Array<{ id: string; name: string; servicesCount?: number }>;
+};
 
 export const authTokenKey = TOKEN_KEY;
 export const login = (email: string, password: string) => apiRequest<{ token: string; user: AdminUser }>("/auth/login", { method: "POST", body: { email, password }, auth: false });

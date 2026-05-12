@@ -282,9 +282,35 @@ model ProviderProfile {
   services Service[]
 }
 
+model Category {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  subcategories Subcategory[]
+  services      Service[]
+}
+
+model Subcategory {
+  id         String   @id @default(uuid())
+  name       String
+  categoryId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  services Service[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId])
+}
+
 model Service {
   id                String        @id @default(uuid())
   providerProfileId String
+  categoryId        String?
+  subcategoryId     String?
   title             String
   description       String
   price             Decimal?
@@ -297,11 +323,16 @@ model Service {
   updatedAt         DateTime      @updatedAt
 
   providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  categoryRef     Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategoryRef  Subcategory?    @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
   images          ServiceImage[]
   reviews         Review[]
   reports         Report[]
   savedBy         SavedService[]
   supportTickets SupportTicket[] @relation("TicketService")
+
+  @@index([categoryId])
+  @@index([subcategoryId])
 }
 
 model CommentReaction {

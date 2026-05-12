@@ -103,6 +103,53 @@ function normalizeKeywords(value: unknown): string[] {
   return []
 }
 
+async function resolveServiceCategory(categoryValue: unknown, subcategoryValue: unknown) {
+  const categoryName = String(categoryValue || '').trim()
+  const subcategoryName =
+    subcategoryValue !== undefined &&
+    subcategoryValue !== null &&
+    String(subcategoryValue).trim() !== ''
+      ? String(subcategoryValue).trim()
+      : null
+
+  if (!categoryName) {
+    throw new Error('Category is required')
+  }
+
+  const categoryRecord = await prisma.category.upsert({
+    where: {
+      name: categoryName,
+    },
+    update: {},
+    create: {
+      name: categoryName,
+    },
+  })
+
+  const subcategoryRecord = subcategoryName
+    ? await prisma.subcategory.upsert({
+        where: {
+          categoryId_name: {
+            categoryId: categoryRecord.id,
+            name: subcategoryName,
+          },
+        },
+        update: {},
+        create: {
+          categoryId: categoryRecord.id,
+          name: subcategoryName,
+        },
+      })
+    : null
+
+  return {
+    categoryName,
+    subcategoryName,
+    categoryId: categoryRecord.id,
+    subcategoryId: subcategoryRecord?.id ?? null,
+  }
+}
+
 app.use(helmet())
 app.use(
   cors({
@@ -614,6 +661,8 @@ app.post('/services', authenticate, async (req: Request, res: Response) => {
       })
     }
 
+    const categoryInfo = await resolveServiceCategory(category, subcategory)
+
     const service = await prisma.service.create({
       data: {
         providerProfileId: providerProfile.id,
@@ -621,11 +670,10 @@ app.post('/services', authenticate, async (req: Request, res: Response) => {
         description: String(description).trim(),
         price: parsedPrice,
         city: String(city).trim(),
-        category: String(category).trim(),
-        subcategory:
-          subcategory !== undefined && subcategory !== null
-            ? String(subcategory).trim()
-            : null,
+        category: categoryInfo.categoryName,
+        subcategory: categoryInfo.subcategoryName,
+        categoryId: categoryInfo.categoryId,
+        subcategoryId: categoryInfo.subcategoryId,
         keywords: normalizeKeywords(keywords),
       },
       include: {
@@ -1080,6 +1128,8 @@ app.patch('/services/:id', authenticate, async (req: Request, res: Response) => 
       select: {
         id: true,
         status: true,
+        category: true,
+        subcategory: true,
         providerProfile: {
           select: {
             userId: true,
@@ -1109,6 +1159,8 @@ app.patch('/services/:id', authenticate, async (req: Request, res: Response) => 
       city?: string
       category?: string
       subcategory?: string | null
+      categoryId?: string | null
+      subcategoryId?: string | null
       keywords?: string[]
     } = {}
 
@@ -1121,14 +1173,16 @@ app.patch('/services/:id', authenticate, async (req: Request, res: Response) => 
     if (city !== undefined) {
       updateData.city = String(city).trim()
     }
-    if (category !== undefined) {
-      updateData.category = String(category).trim()
-    }
-    if (subcategory !== undefined) {
-      updateData.subcategory =
-        subcategory === null || String(subcategory).trim() === ''
-          ? null
-          : String(subcategory).trim()
+    if (category !== undefined || subcategory !== undefined) {
+      const categoryInfo = await resolveServiceCategory(
+        category !== undefined ? category : service.category,
+        subcategory !== undefined ? subcategory : service.subcategory,
+      )
+
+      updateData.category = categoryInfo.categoryName
+      updateData.subcategory = categoryInfo.subcategoryName
+      updateData.categoryId = categoryInfo.categoryId
+      updateData.subcategoryId = categoryInfo.subcategoryId
     }
     if (keywords !== undefined) {
       updateData.keywords = normalizeKeywords(keywords)
